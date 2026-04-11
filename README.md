@@ -83,9 +83,11 @@ uv sync
 
 ---
 
-### 3. 定期フラッシュを有効化（macOS）
+### 3. 定期フラッシュを有効化
 
-クラッシュ時でも最大5分以内にフラッシュされるよう launchd を設定します。
+クラッシュ時でも最大5分以内にフラッシュされるよう設定します。
+
+#### macOS（launchd）
 
 ```bash
 # uv のパスを確認
@@ -99,6 +101,19 @@ launchctl load ~/Library/LaunchAgents/com.claude-kb.flush.plist
 
 # 確認
 launchctl list | grep claude-kb  # → - 0 com.claude-kb.flush
+```
+
+#### Linux / GCP Vertex AI Workbench（cron）
+
+```bash
+# crontab を編集
+crontab -e
+
+# 以下を追記（5分ごとに実行）
+*/5 * * * * cd ~/my-knowledge-base && uv run python scripts/flush_periodic.py >> /tmp/claude-kb-flush.log 2>&1
+
+# 確認
+crontab -l
 ```
 
 ---
