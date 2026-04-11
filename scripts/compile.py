@@ -18,7 +18,11 @@ import asyncio
 import sys
 from pathlib import Path
 
-from config import AGENTS_FILE, CONCEPTS_DIR, CONNECTIONS_DIR, DAILY_DIR, KNOWLEDGE_DIR, now_iso
+from config import (
+    AGENTS_FILE, DAILY_DIR, KNOWLEDGE_DIR,
+    DRAFT_DIR, DRAFT_CONCEPTS_DIR, DRAFT_CONNECTIONS_DIR,
+    now_iso,
+)
 from utils import (
     file_hash,
     list_raw_files,
@@ -37,13 +41,7 @@ async def compile_daily_log(log_path: Path, state: dict) -> float:
 
     Returns the API cost of the compilation.
     """
-    from claude_agent_sdk import (
-        AssistantMessage,
-        ClaudeAgentOptions,
-        ResultMessage,
-        TextBlock,
-        query,
-    )
+    from backends import load_backend
 
     log_content = log_path.read_text(encoding="utf-8")
     schema = AGENTS_FILE.read_text(encoding="utf-8")
@@ -66,6 +64,9 @@ async def compile_daily_log(log_path: Path, state: dict) -> float:
 
     prompt = f"""You are a knowledge compiler. Your job is to read a daily conversation log
 and extract knowledge into structured wiki articles.
+
+All article content (titles, summaries, key points, details, etc.) must be written in Japanese.
+Only keep code snippets, file paths, and technical identifiers in their original language.
 
 ## Schema (AGENTS.md)
 
@@ -92,33 +93,32 @@ Read the daily log above and compile it into wiki articles following the schema 
 ### Rules:
 
 1. **Extract key concepts** - Identify 3-7 distinct concepts worth their own article
-2. **Create concept articles** in `knowledge/concepts/` - One .md file per concept
+2. **Create concept articles** in `knowledge/draft/concepts/` - One .md file per concept
    - Use the exact article format from AGENTS.md (YAML frontmatter + sections)
    - Include `sources:` in frontmatter pointing to the daily log file
+   - Include `verified: false` in frontmatter
    - Use `[[concepts/slug]]` wikilinks to link to related concepts
    - Write in encyclopedia style - neutral, comprehensive
-3. **Create connection articles** in `knowledge/connections/` if this log reveals non-obvious
+3. **Create connection articles** in `knowledge/draft/connections/` if this log reveals non-obvious
    relationships between 2+ existing concepts
-4. **Update existing articles** if this log adds new information to concepts already in the wiki
+4. **Update existing draft articles** if this log adds new information to concepts already in draft
    - Read the existing article, add the new information, add the source to frontmatter
-5. **Update knowledge/index.md** - Add new entries to the table
-   - Each entry: `| [[path/slug]] | One-line summary | source-file | {timestamp[:10]} |`
+5. **Do NOT update knowledge/index.md** - index is only updated when articles are verified
 6. **Append to knowledge/log.md** - Add a timestamped entry:
    ```
    ## [{timestamp}] compile | {log_path.name}
    - Source: daily/{log_path.name}
-   - Articles created: [[concepts/x]], [[concepts/y]]
-   - Articles updated: [[concepts/z]] (if any)
+   - Draft articles created: [[draft/concepts/x]], [[draft/concepts/y]]
    ```
 
 ### File paths:
-- Write concept articles to: {CONCEPTS_DIR}
-- Write connection articles to: {CONNECTIONS_DIR}
-- Update index at: {KNOWLEDGE_DIR / 'index.md'}
+- Write concept articles to: {DRAFT_CONCEPTS_DIR}
+- Write connection articles to: {DRAFT_CONNECTIONS_DIR}
+- Do NOT touch: {KNOWLEDGE_DIR / 'index.md'} (managed by review.py)
 - Append log at: {KNOWLEDGE_DIR / 'log.md'}
 
 ### Quality standards:
-- Every article must have complete YAML frontmatter
+- Every article must have complete YAML frontmatter with `verified: false`
 - Every article must link to at least 2 other articles via [[wikilinks]]
 - Key Points section should have 3-5 bullet points
 - Details section should have 2+ paragraphs
@@ -129,23 +129,8 @@ Read the daily log above and compile it into wiki articles following the schema 
     cost = 0.0
 
     try:
-        async for message in query(
-            prompt=prompt,
-            options=ClaudeAgentOptions(
-                cwd=str(ROOT_DIR),
-                system_prompt={"type": "preset", "preset": "claude_code"},
-                allowed_tools=["Read", "Write", "Edit", "Glob", "Grep"],
-                permission_mode="acceptEdits",
-                max_turns=30,
-            ),
-        ):
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        pass  # compilation output - LLM writes files directly
-            elif isinstance(message, ResultMessage):
-                cost = message.total_cost_usd or 0.0
-                print(f"  Cost: ${cost:.4f}")
+        backend = load_backend()
+        await backend.agentic(prompt=prompt, cwd=str(ROOT_DIR), max_turns=30)
     except Exception as e:
         print(f"  Error: {e}")
         return 0.0

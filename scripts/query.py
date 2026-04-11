@@ -24,13 +24,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 async def run_query(question: str, file_back: bool = False) -> str:
     """Query the knowledge base and optionally file the answer back."""
-    from claude_agent_sdk import (
-        AssistantMessage,
-        ClaudeAgentOptions,
-        ResultMessage,
-        TextBlock,
-        query,
-    )
+    from backends import load_backend
 
     wiki_content = read_all_wiki_content()
 
@@ -80,32 +74,19 @@ consulting the knowledge base below.
 {file_back_instructions}"""
 
     answer = ""
-    cost = 0.0
 
     try:
-        async for message in query(
-            prompt=prompt,
-            options=ClaudeAgentOptions(
-                cwd=str(ROOT_DIR),
-                system_prompt={"type": "preset", "preset": "claude_code"},
-                allowed_tools=tools,
-                permission_mode="acceptEdits",
-                max_turns=15,
-            ),
-        ):
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        answer += block.text
-            elif isinstance(message, ResultMessage):
-                cost = message.total_cost_usd or 0.0
+        backend = load_backend()
+        if file_back:
+            answer = await backend.agentic(prompt=prompt, cwd=str(ROOT_DIR), tools=tools, max_turns=15)
+        else:
+            answer = await backend.text(prompt)
     except Exception as e:
         answer = f"Error querying knowledge base: {e}"
 
     # Update state
     state = load_state()
     state["query_count"] = state.get("query_count", 0) + 1
-    state["total_cost"] = state.get("total_cost", 0.0) + cost
     save_state(state)
 
     return answer

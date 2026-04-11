@@ -17,15 +17,22 @@ Configure in .claude/settings.json:
 """
 
 import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# 再帰ガード: flush.py が内部で起動した Claude セッションには登録・注入しない
+if os.environ.get("CLAUDE_INVOKED_BY"):
+    print(json.dumps({}))
+    sys.exit(0)
 
 # Paths relative to project root
 ROOT = Path(__file__).resolve().parent.parent
 KNOWLEDGE_DIR = ROOT / "knowledge"
 DAILY_DIR = ROOT / "daily"
 INDEX_FILE = KNOWLEDGE_DIR / "index.md"
+SCRIPTS_DIR = ROOT / "scripts"
 
 MAX_CONTEXT_CHARS = 20_000
 MAX_LOG_LINES = 30
@@ -75,7 +82,27 @@ def build_context() -> str:
     return context
 
 
+def save_active_session(hook_input: dict) -> None:
+    """セッションをレジストリに登録する（複数セッション対応）。"""
+    import sys as _sys
+    _sys.path.insert(0, str(SCRIPTS_DIR))
+    from session_registry import register
+    register(
+        hook_input.get("session_id", ""),
+        hook_input.get("transcript_path", ""),
+    )
+
+
 def main():
+    # stdin からセッション情報を読む
+    try:
+        raw = sys.stdin.read()
+        hook_input = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        hook_input = {}
+
+    save_active_session(hook_input)
+
     context = build_context()
 
     output = {

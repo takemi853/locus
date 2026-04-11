@@ -1,0 +1,24 @@
+# ナレッジベースの環境設定
+# backend: claude_code | anthropic_api | vertex_ai
+
+environment: private
+
+llm:
+  # private 環境: claude_code（Claude Code CLI を使用）
+  # work 環境:    anthropic_api または vertex_ai
+  backend: claude_code
+  model: claude-sonnet-4-6
+
+  # anthropic_api / vertex_ai バックエンド使用時の設定
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY  # 環境変数名
+
+  # vertex_ai バックエンド使用時の設定
+  vertex_ai:
+    project_id: my-gcp-project      # GCP プロジェクト ID
+    location: us-central1           # リージョン
+
+knowledge:
+  compile_after_hour: 18  # 自動コンパイルを開始する時刻（18 = 18:00以降）
+  min_turns_to_flush: 1   # フラッシュする最低ターン数
+  language: ja            # 記事の言語（ja / en）

@@ -73,73 +73,68 @@ def append_to_daily_log(content: str, section: str = "Session") -> None:
 
 
 async def run_flush(context: str) -> str:
-    """Use Claude Agent SDK to extract important knowledge from conversation context."""
-    from claude_agent_sdk import (
-        AssistantMessage,
-        ClaudeAgentOptions,
-        ResultMessage,
-        TextBlock,
-        query,
-    )
+    """会話コンテキストから重要な知識を抽出してdailyログ用テキストを返す。"""
+    import sys
+    sys.path.insert(0, str(SCRIPTS_DIR))
+    from backends import load_backend
 
-    prompt = f"""Review the conversation context below and respond with a concise summary
-of important items that should be preserved in the daily log.
-Do NOT use any tools — just return plain text.
+    prompt = f"""以下の会話コンテキストを読み、dailyログに残す価値のある情報を日本語で簡潔にまとめてください。
+ツールは使わず、プレーンテキストで返してください。
 
-Format your response as a structured daily log entry with these sections:
+以下のセクション形式で構造化してください：
 
-**Context:** [One line about what the user was working on]
+**Context:** 何をしていたか1行で
 
 **Key Exchanges:**
-- [Important Q&A or discussions]
+- 重要なやり取りや議論
 
 **Decisions Made:**
-- [Any decisions with rationale]
+- 下した判断とその理由
 
 **Lessons Learned:**
-- [Gotchas, patterns, or insights discovered]
+- 発見したパターン・ハマったポイント・知見
 
 **Action Items:**
-- [Follow-ups or TODOs mentioned]
+- 次にやること・TODO
 
-Skip anything that is:
-- Routine tool calls or file reads
-- Content that's trivial or obvious
-- Trivial back-and-forth or clarification exchanges
+以下は含めないでください：
+- 単純なツール呼び出しやファイル読み込み
+- 明らかに自明な内容
+- 簡単な確認のやり取り
 
-Only include sections that have actual content. If nothing is worth saving,
-respond with exactly: FLUSH_OK
+保存すべき内容がない場合は、正確に「FLUSH_OK」とだけ返してください。
 
-## Conversation Context
+最後に必ず以下のメタ情報を追記してください：
+
+<!-- confidence: X/5 -->
+<!-- unverified:
+- [会話に明示的な根拠がない、または誤解している可能性がある主張を列挙。なければ「なし」]
+-->
+
+## 会話コンテキスト
 
 {context}"""
 
-    response = ""
+    backend = load_backend()
 
     try:
-        async for message in query(
-            prompt=prompt,
-            options=ClaudeAgentOptions(
-                cwd=str(ROOT),
-                allowed_tools=[],
-                max_turns=2,
-            ),
-        ):
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        response += block.text
-            elif isinstance(message, ResultMessage):
-                pass
+        response = await backend.text(prompt)
     except Exception as e:
         import traceback
         logging.error("Agent SDK error: %s\n%s", e, traceback.format_exc())
+        import traceback
+        logging.error("Backend error: %s\n%s", e, traceback.format_exc())
         response = f"FLUSH_ERROR: {type(e).__name__}: {e}"
 
     return response
 
 
-COMPILE_AFTER_HOUR = 18  # 6 PM local time
+def _compile_after_hour() -> int:
+    try:
+        from config import Settings
+        return Settings.load().knowledge.compile_after_hour
+    except Exception:
+        return 18
 
 
 def maybe_trigger_compilation() -> None:
@@ -147,7 +142,7 @@ def maybe_trigger_compilation() -> None:
     import subprocess as _sp
 
     now = datetime.now(timezone.utc).astimezone()
-    if now.hour < COMPILE_AFTER_HOUR:
+    if now.hour < _compile_after_hour():
         return
 
     # Check if today's log has already been compiled
