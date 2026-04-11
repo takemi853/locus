@@ -183,14 +183,14 @@ def main() -> None:
     except Exception as e:
         logging.error("Failed to spawn flush.py: %s", e)
 
-    # セッション終了をレジストリから削除
-    try:
-        import sys as _sys
-        _sys.path.insert(0, str(SCRIPTS_DIR))
-        from session_registry import unregister
-        unregister(session_id)
-    except Exception as e:
-        logging.error("Failed to unregister session: %s", e)
+    # セッション終了をレジストリから削除（periodic フラッシュの場合はセッションは続くので削除しない）
+    if source != "periodic":
+        try:
+            sys.path.insert(0, str(SCRIPTS_DIR))
+            from session_registry import unregister
+            unregister(session_id)
+        except Exception as e:
+            logging.error("Failed to unregister session: %s", e)
 
 
 if __name__ == "__main__":
