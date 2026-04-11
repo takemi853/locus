@@ -24,9 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DAILY_DIR = ROOT / "daily"
 SCRIPTS_DIR = ROOT / "scripts"
-STATE_FILE = SCRIPTS_DIR / "last-flush.json"
 LOG_FILE = SCRIPTS_DIR / "flush.log"
 
 # Set up file-based logging so we can verify the background process ran.
@@ -38,6 +36,12 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+# データパスは config.py の DATA_DIR に従う（ログ設定の後に import）
+sys.path.insert(0, str(SCRIPTS_DIR))
+from config import DAILY_DIR  # noqa: E402
+
+STATE_FILE = SCRIPTS_DIR / "last-flush.json"
 
 
 def load_flush_state() -> dict:
@@ -72,17 +76,19 @@ def append_to_daily_log(content: str, section: str = "Session") -> None:
         f.write(entry)
 
 
-async def run_flush(context: str) -> str:
+async def run_flush(context: str, cwd: str = "") -> str:
     """会話コンテキストから重要な知識を抽出してdailyログ用テキストを返す。"""
     import sys
     sys.path.insert(0, str(SCRIPTS_DIR))
     from backends import load_backend
 
+    project_line = f"\n**Project:** `{cwd}`\n" if cwd else ""
+
     prompt = f"""以下の会話コンテキストを読み、dailyログに残す価値のある情報を日本語で簡潔にまとめてください。
 ツールは使わず、プレーンテキストで返してください。
 
 以下のセクション形式で構造化してください：
-
+{project_line}
 **Context:** 何をしていたか1行で
 
 **Key Exchanges:**
@@ -167,9 +173,10 @@ def maybe_trigger_compilation() -> None:
     if not compile_script.exists():
         return
 
-    logging.info("End-of-day compilation triggered (after %d:00)", COMPILE_AFTER_HOUR)
+    logging.info("End-of-day compilation triggered (after %d:00)", _compile_after_hour())
 
-    cmd = ["uv", "run", "--directory", str(ROOT), "python", str(compile_script)]
+    uv = next((p for p in ["/Users/takemi/.local/bin/uv", "/usr/local/bin/uv", "/opt/homebrew/bin/uv"] if Path(p).exists()), "uv")
+    cmd = [uv, "run", "--directory", str(ROOT), "python", str(compile_script)]
 
     kwargs: dict = {}
     if sys.platform == "win32":
@@ -186,11 +193,12 @@ def maybe_trigger_compilation() -> None:
 
 def main():
     if len(sys.argv) < 3:
-        logging.error("Usage: %s <context_file.md> <session_id>", sys.argv[0])
+        logging.error("Usage: %s <context_file.md> <session_id> [cwd]", sys.argv[0])
         sys.exit(1)
 
     context_file = Path(sys.argv[1])
     session_id = sys.argv[2]
+    cwd = sys.argv[3] if len(sys.argv) > 3 else ""
 
     logging.info("flush.py started for session %s, context: %s", session_id, context_file)
 
@@ -218,7 +226,7 @@ def main():
     logging.info("Flushing session %s: %d chars", session_id, len(context))
 
     # Run the LLM extraction
-    response = asyncio.run(run_flush(context))
+    response = asyncio.run(run_flush(context, cwd=cwd))
 
     # Append to daily log
     if "FLUSH_OK" in response:
