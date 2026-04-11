@@ -280,6 +280,64 @@ knowledge:
 
 ---
 
+## 環境別セットアップ
+
+### private（Mac）
+
+```yaml
+# settings.yaml
+environment: private
+data_dir: ~/Projects/knowledge-private
+llm:
+  backend: claude_code
+  model: claude-sonnet-4-6
+```
+
+定期フラッシュは launchd（手順4参照）。
+
+---
+
+### work（GCP Vertex AI Workbench）
+
+```yaml
+# settings.yaml
+environment: work
+data_dir: ~/Projects/knowledge-work
+llm:
+  backend: vertex_ai
+  model: claude-sonnet-4-6
+  vertex_ai:
+    project_id: your-gcp-project-id
+    location: us-central1
+```
+
+定期フラッシュは cron（手順4参照）。
+
+データリポジトリの初回作成：
+
+```bash
+# GitHub で knowledge-work リポジトリを作成後
+git clone git@github.com:yourname/knowledge-work.git ~/Projects/knowledge-work
+
+# または既存データなしで新規作成
+mkdir -p ~/Projects/knowledge-work && cd ~/Projects/knowledge-work && git init
+git remote add origin git@github.com:yourname/knowledge-work.git
+```
+
+---
+
+### データリポジトリの初回 GitHub プッシュ
+
+```bash
+# GitHub CLI で private リポジトリを作成してプッシュ
+cd ~/Projects/knowledge-private
+gh repo create yourname/knowledge-private --private
+git remote add origin git@github.com:yourname/knowledge-private.git
+git push -u origin main
+```
+
+---
+
 ## トラブルシューティング
 
 ### フラッシュが動かない
