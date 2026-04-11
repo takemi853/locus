@@ -90,6 +90,19 @@ def extract_conversation_context(transcript_path: Path) -> tuple[str, int]:
     return context, len(recent)
 
 
+def _uv_path() -> str:
+    """uv のフルパスを返す（launchd は PATH が最小限なのでフルパス必須）。"""
+    candidates = [
+        "/Users/takemi/.local/bin/uv",
+        "/usr/local/bin/uv",
+        "/opt/homebrew/bin/uv",
+    ]
+    for p in candidates:
+        if Path(p).exists():
+            return p
+    return "uv"
+
+
 def main() -> None:
     # Read hook input from stdin
     try:
@@ -142,7 +155,7 @@ def main() -> None:
     flush_script = SCRIPTS_DIR / "flush.py"
 
     cmd = [
-        "uv",
+        _uv_path(),
         "run",
         "--directory",
         str(ROOT),
@@ -164,6 +177,7 @@ def main() -> None:
         logging.info("Spawned flush.py for session %s (%d turns, %d chars)", session_id, turn_count, len(context))
     except Exception as e:
         logging.error("Failed to spawn flush.py: %s", e)
+        context_file.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

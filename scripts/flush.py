@@ -127,8 +127,6 @@ async def run_flush(context: str, cwd: str = "") -> str:
         response = await backend.text(prompt)
     except Exception as e:
         import traceback
-        logging.error("Agent SDK error: %s\n%s", e, traceback.format_exc())
-        import traceback
         logging.error("Backend error: %s\n%s", e, traceback.format_exc())
         response = f"FLUSH_ERROR: {type(e).__name__}: {e}"
 

@@ -182,6 +182,7 @@ def main() -> None:
         logging.info("Spawned flush.py for session %s (%d turns, %d chars)", session_id, turn_count, len(context))
     except Exception as e:
         logging.error("Failed to spawn flush.py: %s", e)
+        context_file.unlink(missing_ok=True)
 
     # セッション終了をレジストリから削除（periodic フラッシュの場合はセッションは続くので削除しない）
     if source != "periodic":

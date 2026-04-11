@@ -14,11 +14,13 @@ active-sessions.json の形式:
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
-REGISTRY_FILE = SCRIPTS_DIR / "active-sessions.json"  # 複数形に変更
+REGISTRY_FILE = SCRIPTS_DIR / "active-sessions.json"
 
 
 def _load() -> dict:
@@ -31,7 +33,19 @@ def _load() -> dict:
 
 
 def _save(registry: dict) -> None:
-    REGISTRY_FILE.write_text(json.dumps(registry, indent=2), encoding="utf-8")
+    """tmp ファイル経由でアトミックに書き込む（複数プロセスの同時書き込み対策）。"""
+    data = json.dumps(registry, indent=2)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(SCRIPTS_DIR), suffix=".json.tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            f.write(data)
+        os.replace(tmp_path, str(REGISTRY_FILE))
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def register(session_id: str, transcript_path: str) -> None:
