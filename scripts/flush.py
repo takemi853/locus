@@ -35,6 +35,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,  # 既存のハンドラがあっても上書き（no-op を防ぐ）
 )
 
 # データパスは config.py の DATA_DIR に従う（ログ設定の後に import）
