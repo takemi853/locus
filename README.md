@@ -1,52 +1,262 @@
-# LLM Personal Knowledge Base
+# パーソナルナレッジベース
 
-**Your AI conversations compile themselves into a searchable knowledge base.**
+Claude Code との会話が自動でナレッジベースに蓄積されるシステムです。
 
-Adapted from [Karpathy's LLM Knowledge Base](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) architecture, but instead of clipping web articles, the raw data is your own conversations with Claude Code. When a session ends (or auto-compacts mid-session), Claude Code hooks capture the conversation transcript and spawn a background process that uses the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk) to extract the important stuff - decisions, lessons learned, patterns, gotchas - and appends it to a daily log. You then compile those daily logs into structured, cross-referenced knowledge articles organized by concept. Retrieval uses a simple index file instead of RAG - no vector database, no embeddings, just markdown.
+セッションが終わるたびに会話の要点を抽出・記事化し、次のセッション開始時にコンテキストとして注入します。使えば使うほど Claude があなたの過去の知識を参照できるようになります。
 
-Anthropic has clarified that personal use of the Claude Agent SDK is covered under your existing Claude subscription (Max, Team, or Enterprise) - no separate API credits needed. Unlike OpenClaw, which requires API billing for its memory flush, this runs on your subscription.
+---
 
-## Quick Start
-
-Tell your AI coding agent:
-
-> "Clone https://github.com/coleam00/claude-memory-compiler into this project. Set up the Claude Code hooks so my conversations automatically get captured into daily logs, compiled into a knowledge base, and injected back into future sessions. Read the AGENTS.md for the full technical reference on how everything works."
-
-The agent will:
-1. Clone the repo and run `uv sync` to install dependencies
-2. Copy `.claude/settings.json` into your project (or merge the hooks into your existing settings)
-3. The hooks activate automatically next time you open Claude Code
-
-From there, your conversations start accumulating. After 6 PM local time, the next session flush automatically triggers compilation of that day's logs into knowledge articles. You can also run `uv run python scripts/compile.py` manually at any time.
-
-## How It Works
+## 仕組み
 
 ```
-Conversation -> SessionEnd/PreCompact hooks -> flush.py extracts knowledge
-    -> daily/YYYY-MM-DD.md -> compile.py -> knowledge/concepts/, connections/, qa/
-        -> SessionStart hook injects index into next session -> cycle repeats
+会話
+  └─ SessionEnd/PreCompact hook
+        └─ flush.py（要約 → daily/YYYY-MM-DD.md）
+              └─ compile.py（記事化 → knowledge/draft/）
+                    └─ review.py（承認 → knowledge/concepts/）
+                          └─ SessionStart hook（次回会話にインデックスを注入）
 ```
 
-- **Hooks** capture conversations automatically (session end + pre-compaction safety net)
-- **flush.py** calls the Claude Agent SDK to decide what's worth saving, and after 6 PM triggers end-of-day compilation automatically
-- **compile.py** turns daily logs into organized concept articles with cross-references (triggered automatically or run manually)
-- **query.py** answers questions using index-guided retrieval (no RAG needed at personal scale)
-- **lint.py** runs 7 health checks (broken links, orphans, contradictions, staleness)
+- **RAGなし** — インデックスファイルをLLMが直接読む方式（個人スケールでは精度が高い）
+- **複数セッション対応** — 同時に複数の Claude Code を開いていても全て追跡
+- **クラッシュ耐性** — 5分ごとの定期フラッシュで SessionEnd が発火しなくても補完
+- **真偽チェック** — 自動生成は `draft/` に置き、`review.py` でレビューしてから公開
 
-## Key Commands
+---
+
+## セットアップ（新しいPCで1から）
+
+### 前提条件
+
+- [Claude Code](https://claude.ai/code) インストール済み・ログイン済み
+- [uv](https://docs.astral.sh/uv/) インストール済み
+- SSH鍵が GitHub に登録済み
+
+---
+
+### 1. リポジトリをクローン
 
 ```bash
-uv run python scripts/compile.py                    # compile new daily logs
-uv run python scripts/query.py "question"            # ask the knowledge base
-uv run python scripts/query.py "question" --file-back # ask + save answer back
-uv run python scripts/lint.py                        # run health checks
-uv run python scripts/lint.py --structural-only      # free structural checks only
+git clone git@github.com:takemi853/my-knowledge-base.git ~/Projects/app/claude-memory-compiler
+cd ~/Projects/app/claude-memory-compiler
+uv sync
 ```
 
-## Why No RAG?
+---
 
-Karpathy's insight: at personal scale (50-500 articles), the LLM reading a structured `index.md` outperforms vector similarity. The LLM understands what you're really asking; cosine similarity just finds similar words. RAG becomes necessary at ~2,000+ articles when the index exceeds the context window.
+### 2. グローバルhooksを設定
 
-## Technical Reference
+`~/.claude/settings.json` に以下を追加（既存の設定がある場合はマージ）：
 
-See **[AGENTS.md](AGENTS.md)** for the complete technical reference: article formats, hook architecture, script internals, cross-platform details, costs, and customization options. AGENTS.md is designed to give an AI agent everything it needs to understand, modify, or rebuild the system.
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cd /Users/yourname/Projects/app/claude-memory-compiler && uv run python hooks/session-start.py",
+        "timeout": 15
+      }]
+    }],
+    "PreCompact": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cd /Users/yourname/Projects/app/claude-memory-compiler && uv run python hooks/pre-compact.py",
+        "timeout": 10
+      }]
+    }],
+    "SessionEnd": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "cd /Users/yourname/Projects/app/claude-memory-compiler && uv run python hooks/session-end.py",
+        "timeout": 10
+      }]
+    }]
+  }
+}
+```
+
+> パスは実際の環境に合わせて変更してください。
+
+---
+
+### 3. 定期フラッシュを有効化（macOS）
+
+クラッシュ時でも最大5分以内にフラッシュされるよう launchd を設定します。
+
+```bash
+# uv のパスを確認
+which uv  # → /Users/yourname/.local/bin/uv
+
+# com.claude-kb.flush.plist 内の uv パスが一致しているか確認・修正
+
+# インストール
+cp com.claude-kb.flush.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.claude-kb.flush.plist
+
+# 確認
+launchctl list | grep claude-kb  # → - 0 com.claude-kb.flush
+```
+
+---
+
+### 4. Claude Code を再起動
+
+一度閉じて再起動すると hooks が有効になります。**これ以降に開いたセッションから自動で追跡・記録が始まります。**
+
+---
+
+### 5. UIビューアのセットアップ（任意）
+
+ブラウザでナレッジを閲覧したい場合は [Quartz](https://quartz.jzhao.xyz/) を使います。
+
+```bash
+cd ~/Projects/app
+git clone https://github.com/jackyzha0/quartz.git knowledge-ui
+cd knowledge-ui
+npm ci
+rm -rf content
+ln -s ~/Projects/app/claude-memory-compiler/knowledge content
+npx quartz build --serve  # → http://localhost:8080
+```
+
+---
+
+## 日常の使い方
+
+### 自動で行われること（何もしなくていい）
+
+| タイミング | 処理 |
+|---|---|
+| セッション開始時 | ナレッジのインデックスを会話に注入 |
+| セッション終了時 | 会話を要約して `daily/` に保存 |
+| 5分ごと（launchd） | 未保存のターンを定期チェック・フラッシュ |
+| 18時以降の終了時 | `daily/` を自動コンパイル → `knowledge/draft/` に生成 |
+
+### 手動コマンド
+
+```bash
+cd ~/Projects/app/claude-memory-compiler
+
+# ドラフト記事をレビュー・承認
+uv run python scripts/review.py
+uv run python scripts/review.py --list   # 一覧のみ表示
+uv run python scripts/review.py --all    # 全て承認
+
+# 今すぐコンパイル
+uv run python scripts/compile.py
+
+# ナレッジに質問
+uv run python scripts/query.py "SwiftUIの非同期処理は？"
+uv run python scripts/query.py "質問" --file-back  # 回答を qa/ にも保存
+
+# ヘルスチェック
+uv run python scripts/lint.py
+```
+
+### review.py の操作
+
+```
+[y] 承認 → knowledge/concepts/ に昇格・index.md に追記
+[n] 却下 → draft から削除
+[e] エディタで編集 → 再表示
+[s] スキップ（後回し）
+[q] 終了
+```
+
+記事には **確信度（1〜5）** と **要確認リスト** が表示されます。
+
+### ナレッジの同期（PC間）
+
+```bash
+# 作業後（1日1回程度）
+git add .
+git commit -m "ナレッジ更新"
+git push
+
+# 別のPCで
+git pull
+```
+
+---
+
+## ファイル構成
+
+```
+claude-memory-compiler/
+├── hooks/
+│   ├── session-start.py      セッション開始：コンテキスト注入・セッション登録
+│   ├── session-end.py        セッション終了：フラッシュ起動・セッション削除
+│   └── pre-compact.py        自動圧縮前：フラッシュ起動
+├── scripts/
+│   ├── flush.py              会話を要約して daily/ に書き出す
+│   ├── flush_periodic.py     定期フラッシュ（launchd から呼ばれる）
+│   ├── compile.py            daily/ → knowledge/draft/ に記事生成
+│   ├── review.py             draft → verified への昇格レビュー
+│   ├── query.py              ナレッジへの質問
+│   ├── lint.py               ヘルスチェック
+│   ├── session_registry.py   複数セッションの追跡
+│   └── backends/             LLMバックエンド抽象化
+├── daily/                    会話の要約ログ（自動生成）
+├── knowledge/
+│   ├── draft/                未レビュー記事（compile.py が生成）
+│   ├── concepts/             レビュー済み記事
+│   ├── connections/          概念間の関係記事
+│   ├── qa/                   query --file-back で保存した Q&A
+│   └── index.md              全記事の目次（セッション開始時に注入）
+├── settings.yaml             環境設定
+└── com.claude-kb.flush.plist macOS launchd 設定
+```
+
+---
+
+## settings.yaml
+
+```yaml
+environment: private   # または work
+
+llm:
+  backend: claude_code  # claude_code | anthropic_api | vertex_ai
+  model: claude-sonnet-4-6
+
+knowledge:
+  compile_after_hour: 18  # 自動コンパイル開始時刻
+  language: ja            # 記事の言語
+```
+
+---
+
+## トラブルシューティング
+
+### フラッシュが動かない
+
+```bash
+tail -20 scripts/flush.log
+uv run python scripts/flush_periodic.py  # 手動テスト
+```
+
+### launchd が起動しない
+
+```bash
+cat /tmp/claude-kb-flush-error.log
+
+# plist の uv パスを修正後、再読み込み
+launchctl unload ~/Library/LaunchAgents/com.claude-kb.flush.plist
+launchctl load ~/Library/LaunchAgents/com.claude-kb.flush.plist
+```
+
+### セッションが追跡されていない
+
+hooks 設定前に開始したセッションは登録されません。手動で登録できます：
+
+```bash
+python -c "
+import sys; sys.path.insert(0, 'scripts')
+from session_registry import register
+register('SESSION_ID', '/path/to/transcript.jsonl')
+# transcript は ~/.claude/projects/ 以下にある .jsonl ファイル
+"
+```
