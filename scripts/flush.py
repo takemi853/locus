@@ -15,6 +15,12 @@ from __future__ import annotations
 import os
 os.environ["CLAUDE_INVOKED_BY"] = "memory_flush"
 
+# ── 起動診断: logging より前にファイルへ直接書き込む ──────────────────
+import time as _time
+_startup_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flush_startup.log")
+with open(_startup_log, "a") as _f:
+    _f.write(f"{_time.strftime('%Y-%m-%d %H:%M:%S')} pid={os.getpid()} argv={__import__('sys').argv[1:]}\n")
+
 import asyncio
 import json
 import logging
