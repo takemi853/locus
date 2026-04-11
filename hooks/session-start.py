@@ -29,10 +29,11 @@ if os.environ.get("CLAUDE_INVOKED_BY"):
 
 # Paths relative to project root
 ROOT = Path(__file__).resolve().parent.parent
-KNOWLEDGE_DIR = ROOT / "knowledge"
-DAILY_DIR = ROOT / "daily"
-INDEX_FILE = KNOWLEDGE_DIR / "index.md"
 SCRIPTS_DIR = ROOT / "scripts"
+
+# データパスは config.py の DATA_DIR に従う
+sys.path.insert(0, str(SCRIPTS_DIR))
+from config import KNOWLEDGE_DIR, DAILY_DIR, INDEX_FILE
 
 MAX_CONTEXT_CHARS = 20_000
 MAX_LOG_LINES = 30

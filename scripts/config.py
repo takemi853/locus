@@ -7,25 +7,42 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-# ── パス ──────────────────────────────────────────────────────────────
+# ── システムパス（コードの場所）────────────────────────────────────────
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DAILY_DIR = ROOT_DIR / "daily"
-KNOWLEDGE_DIR = ROOT_DIR / "knowledge"
-DRAFT_DIR = KNOWLEDGE_DIR / "draft"
-CONCEPTS_DIR = KNOWLEDGE_DIR / "concepts"       # verified
-CONNECTIONS_DIR = KNOWLEDGE_DIR / "connections"  # verified
-DRAFT_CONCEPTS_DIR = DRAFT_DIR / "concepts"
-DRAFT_CONNECTIONS_DIR = DRAFT_DIR / "connections"
-QA_DIR = KNOWLEDGE_DIR / "qa"
-REPORTS_DIR = ROOT_DIR / "reports"
 SCRIPTS_DIR = ROOT_DIR / "scripts"
 HOOKS_DIR = ROOT_DIR / "hooks"
 AGENTS_FILE = ROOT_DIR / "AGENTS.md"
+SETTINGS_FILE = ROOT_DIR / "settings.yaml"
+
+# ── データパス（settings.yaml の data_dir で変更可能）─────────────────
+def _resolve_data_dir() -> Path:
+    """settings.yaml の data_dir を読む。未設定なら ROOT_DIR（後方互換）。"""
+    if not SETTINGS_FILE.exists():
+        return ROOT_DIR
+    try:
+        import yaml  # type: ignore
+        raw = yaml.safe_load(SETTINGS_FILE.read_text(encoding="utf-8")) or {}
+        data_dir = raw.get("data_dir", "")
+        if data_dir:
+            return Path(data_dir).expanduser().resolve()
+    except Exception:
+        pass
+    return ROOT_DIR
+
+DATA_DIR = _resolve_data_dir()
+DAILY_DIR = DATA_DIR / "daily"
+KNOWLEDGE_DIR = DATA_DIR / "knowledge"
+DRAFT_DIR = KNOWLEDGE_DIR / "draft"
+CONCEPTS_DIR = KNOWLEDGE_DIR / "concepts"
+CONNECTIONS_DIR = KNOWLEDGE_DIR / "connections"
+DRAFT_CONCEPTS_DIR = DRAFT_DIR / "concepts"
+DRAFT_CONNECTIONS_DIR = DRAFT_DIR / "connections"
+QA_DIR = KNOWLEDGE_DIR / "qa"
+REPORTS_DIR = DATA_DIR / "reports"
 
 INDEX_FILE = KNOWLEDGE_DIR / "index.md"
 LOG_FILE = KNOWLEDGE_DIR / "log.md"
-STATE_FILE = SCRIPTS_DIR / "state.json"
-SETTINGS_FILE = ROOT_DIR / "settings.yaml"
+STATE_FILE = SCRIPTS_DIR / "state.json"  # ランタイム状態はシステム側に置く
 
 
 # ── 設定クラス ────────────────────────────────────────────────────────
