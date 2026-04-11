@@ -40,7 +40,12 @@ logging.basicConfig(
 
 # データパスは config.py の DATA_DIR に従う（ログ設定の後に import）
 sys.path.insert(0, str(SCRIPTS_DIR))
-from config import DAILY_DIR  # noqa: E402
+try:
+    from config import DAILY_DIR  # noqa: E402
+except Exception as _e:
+    import traceback as _tb
+    logging.critical("FATAL: Cannot import DAILY_DIR: %s\n%s", _e, _tb.format_exc())
+    sys.exit(1)
 
 STATE_FILE = SCRIPTS_DIR / "last-flush.json"
 
