@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 from config import (
-    AGENTS_FILE, DAILY_DIR, KNOWLEDGE_DIR,
+    AGENTS_FILE, DATA_DIR, DAILY_DIR, KNOWLEDGE_DIR,
     DRAFT_DIR, DRAFT_CONCEPTS_DIR, DRAFT_CONNECTIONS_DIR,
     now_iso,
 )
@@ -163,8 +163,8 @@ def main():
         if not target.is_absolute():
             target = DAILY_DIR / target.name
         if not target.exists():
-            # Try resolving relative to project root
-            target = ROOT_DIR / args.file
+            # Try resolving relative to data dir
+            target = DATA_DIR / args.file
         if not target.exists():
             print(f"Error: {args.file} not found")
             sys.exit(1)

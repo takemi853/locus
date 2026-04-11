@@ -105,7 +105,7 @@ def flush_session(session_id: str, transcript_path: Path) -> None:
 
 def main() -> None:
     sys.path.insert(0, str(SCRIPTS_DIR))
-    from session_registry import all_sessions
+    from session_registry import all_sessions, unregister
 
     sessions = all_sessions()
     if not sessions:
@@ -118,6 +118,9 @@ def main() -> None:
     for session_id, info in sessions.items():
         transcript_path = Path(info.get("transcript_path", ""))
         if not transcript_path.exists():
+            # transcript が消えていたらクラッシュ終了とみなしてレジストリから削除
+            logging.info("Removing stale session (transcript missing): %s", session_id)
+            unregister(session_id)
             continue
 
         # このセッションの前回フラッシュ状態
