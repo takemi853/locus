@@ -25,7 +25,6 @@ if os.environ.get("CLAUDE_INVOKED_BY"):
     sys.exit(0)
 
 ROOT = Path(__file__).resolve().parent.parent
-DAILY_DIR = ROOT / "daily"
 SCRIPTS_DIR = ROOT / "scripts"
 STATE_DIR = SCRIPTS_DIR
 
@@ -91,6 +90,19 @@ def extract_conversation_context(transcript_path: Path) -> tuple[str, int]:
     return context, len(recent)
 
 
+def _uv_path() -> str:
+    """uv のフルパスを返す（launchd は PATH が最小限なのでフルパス必須）。"""
+    candidates = [
+        "/Users/takemi/.local/bin/uv",
+        "/usr/local/bin/uv",
+        "/opt/homebrew/bin/uv",
+    ]
+    for p in candidates:
+        if Path(p).exists():
+            return p
+    return "uv"  # フォールバック
+
+
 def main() -> None:
     # Read hook input from stdin
     # Claude Code on Windows may pass paths with unescaped backslashes
@@ -108,6 +120,7 @@ def main() -> None:
     session_id = hook_input.get("session_id", "unknown")
     source = hook_input.get("source", "unknown")
     transcript_path_str = hook_input.get("transcript_path", "")
+    cwd = hook_input.get("cwd", "")
 
     logging.info("SessionEnd fired: session=%s source=%s", session_id, source)
 
@@ -144,7 +157,7 @@ def main() -> None:
     flush_script = SCRIPTS_DIR / "flush.py"
 
     cmd = [
-        "uv",
+        _uv_path(),
         "run",
         "--directory",
         str(ROOT),
@@ -152,6 +165,7 @@ def main() -> None:
         str(flush_script),
         str(context_file),
         session_id,
+        cwd,
     ]
 
     # On Windows, use CREATE_NO_WINDOW to avoid flash console window.
