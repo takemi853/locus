@@ -38,93 +38,142 @@ from utils import (
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
-async def compile_daily_log(log_path: Path, state: dict) -> float:
-    """Compile a single daily log into knowledge articles.
+def _extract_projects_from_log(log_content: str) -> list[str]:
+    """dailyログの **Project:** 行からプロジェクト名を抽出する。"""
+    import re
+    found = re.findall(r"\*\*Project:\*\*\s*`([^`]+)`", log_content)
+    # パス末尾のディレクトリ名（例: /Users/x/Projects/locus → locus）
+    return list(dict.fromkeys(Path(p).name for p in found if p))
 
-    Returns the API cost of the compilation.
-    """
+
+def _existing_article_titles() -> str:
+    """wiki/ と inbox/wiki/ の既存記事タイトルをスラグ付きで一覧返す（重複防止用）。"""
+    lines = []
+    for article_path in list_wiki_articles():
+        slug = article_path.stem
+        # frontmatter から title だけ抜く（全文読まない）
+        try:
+            header = article_path.read_bytes()[:512].decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        title_match = __import__("re").search(r'^title:\s*["\']?(.+?)["\']?\s*$', header, __import__("re").MULTILINE)
+        title = title_match.group(1) if title_match else slug
+        lines.append(f"- `{slug}` — {title}")
+    return "\n".join(lines) if lines else "（まだ記事なし）"
+
+
+async def compile_daily_log(log_path: Path, state: dict) -> float:
+    """dailyログ1件をコンパイルして wiki 記事を生成する。"""
     from backends import load_backend
 
     log_content = log_path.read_text(encoding="utf-8")
-    schema = AGENTS_FILE.read_text(encoding="utf-8")
     wiki_index = read_wiki_index()
-
-    # Read existing articles for context
-    existing_articles_context = ""
-    existing = {}
-    for article_path in list_wiki_articles():
-        rel = article_path.relative_to(KNOWLEDGE_DIR)
-        existing[str(rel)] = article_path.read_text(encoding="utf-8")
-
-    if existing:
-        parts = []
-        for rel_path, content in existing.items():
-            parts.append(f"### {rel_path}\n```markdown\n{content}\n```")
-        existing_articles_context = "\n\n".join(parts)
-
+    existing_titles = _existing_article_titles()
+    projects = _extract_projects_from_log(log_content)
+    projects_field = str(projects) if projects else "[]"
     timestamp = now_iso()
 
-    prompt = f"""You are a knowledge compiler. Your job is to read a daily conversation log
-and extract knowledge into structured wiki articles.
+    prompt = f"""あなたは個人ナレッジベース「Locus」のコンパイラです。
+dailyログを読み、保存価値のある知識を wiki 記事として抽出してください。
 
-All article content (titles, summaries, key points, details, etc.) must be written in Japanese.
-Only keep code snippets, file paths, and technical identifiers in their original language.
+## 現在のナレッジベース（タイトル一覧）
 
-## Schema (AGENTS.md)
+{existing_titles}
 
-{schema}
-
-## Current Wiki Index
+## 現在のインデックス
 
 {wiki_index}
 
-## Existing Wiki Articles
+---
 
-{existing_articles_context if existing_articles_context else "(No existing articles yet)"}
+## 記事フォーマット（必ずこの形式に従う）
 
-## Daily Log to Compile
+```markdown
+---
+title: "記事タイトル（日本語）"
+aliases: [英語略称, 別名]
+tags: [カテゴリ, トピック]
+projects: {projects_field}
+type: concept | how-to | reference | pattern
+sources:
+  - "daily/{log_path.name}"
+created: {log_path.stem}
+updated: {log_path.stem}
+verified: false
+---
 
-**File:** {log_path.name}
+# 記事タイトル
+
+[2〜3文の核心的な説明。これだけ読めば概念がわかる水準で]
+
+## Key Points
+
+- **ポイント1**：説明
+- **ポイント2**：説明
+- **ポイント3**：説明（3〜5項目）
+
+## Details
+
+[詳細説明。背景・仕組み・注意点を段落で。具体的なコード例があれば含める]
+
+## Related Concepts
+
+- [[wiki/関連記事スラグ]] — どう関連するか一言
+- [[wiki/別の関連記事]] — どう関連するか一言
+
+## Sources
+
+- [[daily/{log_path.name}]] — このログから抽出した具体的な根拠
+```
+
+---
+
+## ルール
+
+### 何を記事にするか
+- 「次のセッションでも参照したい知識」を3〜7件抽出する
+- 単純な操作ログ（ファイルを読んだ、コマンドを実行した）は記事にしない
+- 下した判断・発見したパターン・ハマったポイント・設計決定 → 記事にする価値が高い
+
+### 重複防止（最重要）
+**上記「タイトル一覧」に同じトピックの記事が既に存在する場合、新記事を作らず既存記事を更新すること。**
+- 既存記事を読む → 新情報を追記 → sources に今回のログを追加 → updated を更新
+- スラグが似ている記事（例：`active-sessions-registry` と `active-sessions-multi-session`）は同一トピックとみなして統合を検討
+
+### ファイルパス
+- 新規記事の書き込み先：`{DRAFT_WIKI_DIR}/スラグ.md`
+- 既存 inbox 記事の更新先：`{DRAFT_WIKI_DIR}/スラグ.md`（既存を Read してから Edit）
+- **触ってはいけない**：`{KNOWLEDGE_DIR / 'index.md'}`（昇格時のみ更新）
+- ログ追記先：`{KNOWLEDGE_DIR / 'log.md'}`
+
+### スラグ命名規則
+- 英語、ケバブケース（例：`session-end-hook`, `uv-no-sync-flag`）
+- 既存スラグとの一貫性を優先（例：既に `flush-py` があるなら `flush-py-xxx` で統一）
+- 長すぎるスラグは避ける（30文字以内を目安）
+
+### 品質基準
+- frontmatter の全フィールドを必ず埋める
+- Related Concepts には必ず2件以上の `[[wiki/スラグ]]` wikilink を書く
+- wikilink のパスは `wiki/スラグ` 形式（`concepts/` や `connections/` は廃止）
+- Key Points は太字ラベル付きで（`- **ラベル**：説明`）
+- Sources には「何を根拠にしたか」の具体的な説明を書く
+
+### 最後に必ず実行
+以下の形式で `{KNOWLEDGE_DIR / 'log.md'}` に追記する：
+```
+## [{timestamp}] compile | {log_path.name}
+- Source: daily/{log_path.name}
+- 作成：[[inbox/wiki/x]], [[inbox/wiki/y]]
+- 更新：[[inbox/wiki/z]]（更新なしの場合は省略）
+```
+
+---
+
+## コンパイル対象の dailyログ
+
+**ファイル：** {log_path.name}
 
 {log_content}
-
-## Your Task
-
-Read the daily log above and compile it into wiki articles following the schema exactly.
-
-### Rules:
-
-1. **Extract key concepts** - Identify 3-7 distinct pieces of knowledge worth their own article
-2. **Write articles** to `{DRAFT_WIKI_DIR}` - One .md file per topic (flat, no subdirectories)
-   - Use the article format from AGENTS.md (YAML frontmatter + sections)
-   - Include `sources:` in frontmatter pointing to the daily log file
-   - Include `verified: false` in frontmatter
-   - Add `type:` field: one of `concept`, `how-to`, `reference`, `pattern`
-   - Add `projects:` field: list of related project names (e.g. `[locus]`)
-   - Use `[[wiki/slug]]` wikilinks to link to related articles
-   - Write in encyclopedia style - neutral, comprehensive
-3. **Update existing draft articles** if this log adds new information to topics already in draft
-   - Read the existing article, add the new information, add the source to frontmatter
-4. **Do NOT update knowledge/index.md** - index is only updated when articles are promoted to wiki/
-5. **Append to knowledge/log.md** - Add a timestamped entry:
-   ```
-   ## [{timestamp}] compile | {log_path.name}
-   - Source: daily/{log_path.name}
-   - Draft articles created: [[inbox/wiki/x]], [[inbox/wiki/y]]
-   ```
-
-### File paths:
-- Write all draft articles to: {DRAFT_WIKI_DIR}
-- Do NOT touch: {KNOWLEDGE_DIR / 'index.md'}
-- Append log at: {KNOWLEDGE_DIR / 'log.md'}
-
-### Quality standards:
-- Every article must have complete YAML frontmatter with `verified: false`
-- Every article must link to at least 2 other articles via [[wikilinks]]
-- Key Points section should have 3-5 bullet points
-- Details section should have 2+ paragraphs
-- Related Concepts section should have 2+ entries
-- Sources section should cite the daily log with specific claims extracted
 """
 
     cost = 0.0
@@ -133,10 +182,10 @@ Read the daily log above and compile it into wiki articles following the schema 
         backend = load_backend()
         await backend.agentic(prompt=prompt, cwd=str(ROOT_DIR), max_turns=30)
     except Exception as e:
-        print(f"  Error: {e}")
+        print(f"  エラー: {e}")
         return 0.0
 
-    # Update state
+    # 処理済み状態を記録
     rel_path = log_path.name
     state.setdefault("ingested", {})[rel_path] = {
         "hash": file_hash(log_path),
