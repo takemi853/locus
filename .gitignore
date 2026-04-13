@@ -13,7 +13,7 @@ scripts/compile.log
 scripts/session-flush-*
 scripts/flush-context-*
 
-# データはデータリポジトリ（knowledge-private 等）で管理するためシステムリポジトリからは除外
+# データはデータリポジトリ（locus-private 等）で管理するためシステムリポジトリからは除外
 daily/
 knowledge/
 

@@ -48,7 +48,7 @@ def _save(registry: dict) -> None:
         raise
 
 
-def register(session_id: str, transcript_path: str) -> None:
+def register(session_id: str, transcript_path: str, cwd: str = "") -> None:
     """セッション開始時に登録する。"""
     if not session_id or not transcript_path:
         return
@@ -56,6 +56,7 @@ def register(session_id: str, transcript_path: str) -> None:
     registry[session_id] = {
         "transcript_path": transcript_path,
         "started_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "cwd": cwd,
     }
     _save(registry)
 

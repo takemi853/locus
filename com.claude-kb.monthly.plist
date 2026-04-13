@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude-kb.monthly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/takemi/.local/bin/uv</string>
+        <string>run</string>
+        <string>--directory</string>
+        <string>/Users/takemi/Projects/app/claude-memory-compiler</string>
+        <string>python</string>
+        <string>/Users/takemi/Projects/app/claude-memory-compiler/scripts/monthly.py</string>
+    </array>
+
+    <!-- 毎月28〜31日の21:00に実行。monthly.pyが月末かどうかを判定して実際には月末のみ生成する。 -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Day</key>
+            <integer>28</integer>
+            <key>Hour</key>
+            <integer>21</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Day</key>
+            <integer>29</integer>
+            <key>Hour</key>
+            <integer>21</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Day</key>
+            <integer>30</integer>
+            <key>Hour</key>
+            <integer>21</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Day</key>
+            <integer>31</integer>
+            <key>Hour</key>
+            <integer>21</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/claude-kb-monthly.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/claude-kb-monthly-error.log</string>
+</dict>
+</plist>

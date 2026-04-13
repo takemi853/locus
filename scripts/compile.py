@@ -20,9 +20,11 @@ from pathlib import Path
 
 from config import (
     AGENTS_FILE, DATA_DIR, DAILY_DIR, KNOWLEDGE_DIR,
-    DRAFT_DIR, DRAFT_CONCEPTS_DIR, DRAFT_CONNECTIONS_DIR,
+    DRAFT_DIR,
     now_iso,
 )
+
+DRAFT_WIKI_DIR = DRAFT_DIR / "wiki"
 from utils import (
     file_hash,
     list_raw_files,
@@ -92,29 +94,28 @@ Read the daily log above and compile it into wiki articles following the schema 
 
 ### Rules:
 
-1. **Extract key concepts** - Identify 3-7 distinct concepts worth their own article
-2. **Create concept articles** in `knowledge/draft/concepts/` - One .md file per concept
-   - Use the exact article format from AGENTS.md (YAML frontmatter + sections)
+1. **Extract key concepts** - Identify 3-7 distinct pieces of knowledge worth their own article
+2. **Write articles** to `{DRAFT_WIKI_DIR}` - One .md file per topic (flat, no subdirectories)
+   - Use the article format from AGENTS.md (YAML frontmatter + sections)
    - Include `sources:` in frontmatter pointing to the daily log file
    - Include `verified: false` in frontmatter
-   - Use `[[concepts/slug]]` wikilinks to link to related concepts
+   - Add `type:` field: one of `concept`, `how-to`, `reference`, `pattern`
+   - Add `projects:` field: list of related project names (e.g. `[locus]`)
+   - Use `[[wiki/slug]]` wikilinks to link to related articles
    - Write in encyclopedia style - neutral, comprehensive
-3. **Create connection articles** in `knowledge/draft/connections/` if this log reveals non-obvious
-   relationships between 2+ existing concepts
-4. **Update existing draft articles** if this log adds new information to concepts already in draft
+3. **Update existing draft articles** if this log adds new information to topics already in draft
    - Read the existing article, add the new information, add the source to frontmatter
-5. **Do NOT update knowledge/index.md** - index is only updated when articles are verified
-6. **Append to knowledge/log.md** - Add a timestamped entry:
+4. **Do NOT update knowledge/index.md** - index is only updated when articles are promoted to wiki/
+5. **Append to knowledge/log.md** - Add a timestamped entry:
    ```
    ## [{timestamp}] compile | {log_path.name}
    - Source: daily/{log_path.name}
-   - Draft articles created: [[draft/concepts/x]], [[draft/concepts/y]]
+   - Draft articles created: [[inbox/wiki/x]], [[inbox/wiki/y]]
    ```
 
 ### File paths:
-- Write concept articles to: {DRAFT_CONCEPTS_DIR}
-- Write connection articles to: {DRAFT_CONNECTIONS_DIR}
-- Do NOT touch: {KNOWLEDGE_DIR / 'index.md'} (managed by review.py)
+- Write all draft articles to: {DRAFT_WIKI_DIR}
+- Do NOT touch: {KNOWLEDGE_DIR / 'index.md'}
 - Append log at: {KNOWLEDGE_DIR / 'log.md'}
 
 ### Quality standards:

@@ -32,9 +32,10 @@ def _resolve_data_dir() -> Path:
 DATA_DIR = _resolve_data_dir()
 DAILY_DIR = DATA_DIR / "daily"
 KNOWLEDGE_DIR = DATA_DIR / "knowledge"
+WIKI_DIR = KNOWLEDGE_DIR / "wiki"
 DRAFT_DIR = KNOWLEDGE_DIR / "inbox"
-CONCEPTS_DIR = KNOWLEDGE_DIR / "concepts"
-CONNECTIONS_DIR = KNOWLEDGE_DIR / "connections"
+CONCEPTS_DIR = KNOWLEDGE_DIR / "concepts"   # legacy alias
+CONNECTIONS_DIR = KNOWLEDGE_DIR / "connections"  # legacy alias
 DRAFT_CONCEPTS_DIR = DRAFT_DIR / "concepts"
 DRAFT_CONNECTIONS_DIR = DRAFT_DIR / "connections"
 QA_DIR = KNOWLEDGE_DIR / "qa"

@@ -7,12 +7,30 @@ Claude Code サブスクリプションで動作する。
 from __future__ import annotations
 
 import logging
+import shutil
+from pathlib import Path
 
 from backends.base import LLMBackend
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"]
+
+_CLAUDE_CANDIDATES = [
+    "/Users/takemi/.local/bin/claude",
+    "/usr/local/bin/claude",
+    "/opt/homebrew/bin/claude",
+]
+
+
+def _claude_path() -> str:
+    """Return full path to the claude CLI (handles minimal PATH in launchd)."""
+    for p in _CLAUDE_CANDIDATES:
+        if Path(p).exists():
+            return p
+    # Fall back to shutil.which, then bare command
+    found = shutil.which("claude")
+    return found if found else "claude"
 
 
 class ClaudeCodeBackend(LLMBackend):
@@ -32,7 +50,7 @@ class ClaudeCodeBackend(LLMBackend):
             options=ClaudeAgentOptions(
                 allowed_tools=[],
                 max_turns=2,
-                cli_path="claude",
+                cli_path=_claude_path(),
             ),
         ):
             if isinstance(message, AssistantMessage):
@@ -68,7 +86,7 @@ class ClaudeCodeBackend(LLMBackend):
                 allowed_tools=tools or DEFAULT_TOOLS,
                 permission_mode="acceptEdits",
                 max_turns=max_turns,
-                cli_path="claude",
+                cli_path=_claude_path(),
             ),
         ):
             if isinstance(message, AssistantMessage):

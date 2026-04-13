@@ -5,7 +5,7 @@ environment: private
 
 # データリポジトリの場所（daily/ knowledge/ を置くディレクトリ）
 # 未指定の場合はシステムリポジトリ直下（後方互換）
-data_dir: ~/Projects/knowledge-private
+data_dir: ~/Projects/locus-private
 
 llm:
   # private 環境: claude_code（Claude Code CLI を使用）

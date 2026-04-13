@@ -15,12 +15,6 @@ from __future__ import annotations
 import os
 os.environ["CLAUDE_INVOKED_BY"] = "memory_flush"
 
-# ── 起動診断: logging より前にファイルへ直接書き込む ──────────────────
-import time as _time
-_startup_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flush_startup.log")
-with open(_startup_log, "a") as _f:
-    _f.write(f"{_time.strftime('%Y-%m-%d %H:%M:%S')} pid={os.getpid()} argv={__import__('sys').argv[1:]}\n")
-
 import asyncio
 import json
 import logging
@@ -34,8 +28,6 @@ SCRIPTS_DIR = ROOT / "scripts"
 LOG_FILE = SCRIPTS_DIR / "flush.log"
 
 # Set up file-based logging so we can verify the background process ran.
-# The parent process sends stdout/stderr to DEVNULL (to avoid the inherited
-# file handle bug on Windows), so this is our only observability channel.
 logging.basicConfig(
     filename=str(LOG_FILE),
     level=logging.INFO,
@@ -94,13 +86,11 @@ async def run_flush(context: str, cwd: str = "") -> str:
     sys.path.insert(0, str(SCRIPTS_DIR))
     from backends import load_backend
 
-    project_line = f"\n**Project:** `{cwd}`\n" if cwd else ""
-
     prompt = f"""以下の会話コンテキストを読み、dailyログに残す価値のある情報を日本語で簡潔にまとめてください。
 ツールは使わず、プレーンテキストで返してください。
 
 以下のセクション形式で構造化してください：
-{project_line}
+
 **Context:** 何をしていたか1行で
 
 **Key Exchanges:**
@@ -142,6 +132,11 @@ async def run_flush(context: str, cwd: str = "") -> str:
         logging.error("Backend error: %s\n%s", e, traceback.format_exc())
         response = f"FLUSH_ERROR: {type(e).__name__}: {e}"
 
+    # Project情報をプログラム側で付加（LLMに任せると抜けるため）
+    if cwd and response and not response.startswith("FLUSH_OK") and not response.startswith("FLUSH_ERROR:"):
+        project_name = Path(cwd).name
+        response = f"**Project:** `{project_name}` (`{cwd}`)\n\n{response}"
+
     return response
 
 
@@ -151,6 +146,18 @@ def _compile_after_hour() -> int:
         return Settings.load().knowledge.compile_after_hour
     except Exception:
         return 18
+
+
+def _notify_error(message: str) -> None:
+    """macOS通知でエラーを知らせる（non-fatal）。"""
+    if sys.platform != "darwin":
+        return
+    import subprocess as _sp
+    script = f'display notification "{message}" with title "memory flush ⚠️" sound name "Basso"'
+    try:
+        _sp.run(["osascript", "-e", script], timeout=5, capture_output=True)
+    except Exception:
+        pass
 
 
 def maybe_trigger_compilation() -> None:
@@ -239,14 +246,15 @@ def main():
     response = asyncio.run(run_flush(context, cwd=cwd))
 
     # Append to daily log
-    if "FLUSH_OK" in response:
+    if response.startswith("FLUSH_OK"):
         logging.info("Result: FLUSH_OK")
         append_to_daily_log(
             "FLUSH_OK - Nothing worth saving from this session", "Memory Flush"
         )
-    elif "FLUSH_ERROR" in response:
+    elif response.startswith("FLUSH_ERROR:"):
         logging.error("Result: %s", response)
         append_to_daily_log(response, "Memory Flush")
+        _notify_error(f"flush failed: {response[:80]}")
     else:
         logging.info("Result: saved to daily log (%d chars)", len(response))
         append_to_daily_log(response, "Session")

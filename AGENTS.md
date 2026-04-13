@@ -67,8 +67,8 @@ The LLM owns this directory entirely. Humans read it but rarely edit it directly
 knowledge/
 ├── index.md              # Master catalog - every article with one-line summary
 ├── log.md                # Append-only chronological build log
-├── concepts/             # Atomic knowledge articles
-├── connections/          # Cross-cutting insights linking 2+ concepts
+├── wiki/                 # Knowledge articles (flat namespace)
+├── 
 └── qa/                   # Filed query answers (compounding knowledge)
 ```
 
@@ -91,8 +91,8 @@ Format:
 
 | Article | Summary | Compiled From | Updated |
 |---------|---------|---------------|---------|
-| [[concepts/supabase-auth]] | Row-level security patterns and JWT gotchas | daily/2026-04-02.md | 2026-04-02 |
-| [[connections/auth-and-webhooks]] | Token verification patterns shared across Supabase auth and Stripe webhooks | daily/2026-04-02.md, daily/2026-04-04.md | 2026-04-04 |
+| [[wiki/supabase-auth]] | Row-level security patterns and JWT gotchas | daily/2026-04-02.md | 2026-04-02 |
+| [[wiki/auth-and-webhooks]] | Token verification patterns shared across Supabase auth and Stripe webhooks | daily/2026-04-02.md, daily/2026-04-04.md | 2026-04-04 |
 ```
 
 ### `knowledge/log.md` - Build Log
@@ -106,11 +106,11 @@ Format:
 
 ## [2026-04-01T14:30:00] compile | Daily Log 2026-04-01
 - Source: daily/2026-04-01.md
-- Articles created: [[concepts/nextjs-project-structure]], [[concepts/tailwind-setup]]
+- Articles created: [[wiki/nextjs-project-structure]], [[wiki/tailwind-setup]]
 - Articles updated: (none)
 
 ## [2026-04-02T09:00:00] query | "How do I handle auth redirects?"
-- Consulted: [[concepts/supabase-auth]], [[concepts/nextjs-middleware]]
+- Consulted: [[wiki/supabase-auth]], [[wiki/nextjs-middleware]]
 - Filed to: [[qa/auth-redirect-handling]]
 ```
 
@@ -118,7 +118,7 @@ Format:
 
 ## Article Formats
 
-### Concept Articles (`knowledge/concepts/`)
+### Concept Articles (`knowledge/wiki/`)
 
 One article per atomic piece of knowledge. These are facts, patterns, decisions, preferences, and lessons extracted from your conversations.
 
@@ -148,7 +148,7 @@ updated: 2026-04-03
 
 ## Related Concepts
 
-- [[concepts/related-concept]] - How it connects
+- [[wiki/related-concept]] - How it connects
 
 ## Sources
 
@@ -156,7 +156,7 @@ updated: 2026-04-03
 - [[daily/2026-04-03.md]] - Updated after debugging session
 ```
 
-### Connection Articles (`knowledge/connections/`)
+### Connection Articles (`knowledge/wiki/`)
 
 Cross-cutting synthesis linking 2+ concepts. Created when a conversation reveals a non-obvious relationship.
 
@@ -188,8 +188,8 @@ updated: 2026-04-04
 
 ## Related Concepts
 
-- [[concepts/concept-x]]
-- [[concepts/concept-y]]
+- [[wiki/concept-x]]
+- [[wiki/concept-y]]
 ```
 
 ### Q&A Articles (`knowledge/qa/`)
@@ -214,8 +214,8 @@ filed: 2026-04-05
 
 ## Sources Consulted
 
-- [[concepts/article-1]] - Relevant because...
-- [[concepts/article-2]] - Provided context on...
+- [[wiki/article-1]] - Relevant because...
+- [[wiki/article-2]] - Provided context on...
 
 ## Follow-Up Questions
 

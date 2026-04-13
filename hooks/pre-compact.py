@@ -20,6 +20,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from _common import detach_popen_kwargs, extract_conversation_context, uv_path
+
 # Recursion guard
 if os.environ.get("CLAUDE_INVOKED_BY"):
     sys.exit(0)
@@ -35,72 +37,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-MAX_TURNS = 30
-MAX_CONTEXT_CHARS = 15_000
 MIN_TURNS_TO_FLUSH = 5
-
-
-def extract_conversation_context(transcript_path: Path) -> tuple[str, int]:
-    """Read JSONL transcript and extract last ~N conversation turns as markdown."""
-    turns: list[str] = []
-
-    with open(transcript_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            msg = entry.get("message", {})
-            if isinstance(msg, dict):
-                role = msg.get("role", "")
-                content = msg.get("content", "")
-            else:
-                role = entry.get("role", "")
-                content = entry.get("content", "")
-
-            if role not in ("user", "assistant"):
-                continue
-
-            if isinstance(content, list):
-                text_parts = []
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        text_parts.append(block.get("text", ""))
-                    elif isinstance(block, str):
-                        text_parts.append(block)
-                content = "\n".join(text_parts)
-
-            if isinstance(content, str) and content.strip():
-                label = "User" if role == "user" else "Assistant"
-                turns.append(f"**{label}:** {content.strip()}\n")
-
-    recent = turns[-MAX_TURNS:]
-    context = "\n".join(recent)
-
-    if len(context) > MAX_CONTEXT_CHARS:
-        context = context[-MAX_CONTEXT_CHARS:]
-        boundary = context.find("\n**")
-        if boundary > 0:
-            context = context[boundary + 1 :]
-
-    return context, len(recent)
-
-
-def _uv_path() -> str:
-    """uv のフルパスを返す（launchd は PATH が最小限なのでフルパス必須）。"""
-    candidates = [
-        "/Users/takemi/.local/bin/uv",
-        "/usr/local/bin/uv",
-        "/opt/homebrew/bin/uv",
-    ]
-    for p in candidates:
-        if Path(p).exists():
-            return p
-    return "uv"
 
 
 def main() -> None:
@@ -133,7 +70,7 @@ def main() -> None:
 
     # Extract conversation context in the hook
     try:
-        context, turn_count = extract_conversation_context(transcript_path)
+        context, turn_count = extract_conversation_context(transcript_path, max_turns=10_000)
     except Exception as e:
         logging.error("Context extraction failed: %s", e)
         return
@@ -155,7 +92,7 @@ def main() -> None:
     flush_script = SCRIPTS_DIR / "flush.py"
 
     cmd = [
-        _uv_path(),
+        uv_path(),
         "run",
         "--directory",
         str(ROOT),
@@ -165,14 +102,12 @@ def main() -> None:
         session_id,
     ]
 
-    creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-
     try:
         subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            creationflags=creation_flags,
+            **detach_popen_kwargs(),
         )
         logging.info("Spawned flush.py for session %s (%d turns, %d chars)", session_id, turn_count, len(context))
     except Exception as e:

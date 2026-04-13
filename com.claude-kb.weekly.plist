@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude-kb.weekly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/takemi/.local/bin/uv</string>
+        <string>run</string>
+        <string>--directory</string>
+        <string>/Users/takemi/Projects/app/claude-memory-compiler</string>
+        <string>python</string>
+        <string>/Users/takemi/Projects/app/claude-memory-compiler/scripts/weekly.py</string>
+    </array>
+
+    <!-- 毎週金曜 21:00 に実行 (Weekday: 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>5</integer>
+        <key>Hour</key>
+        <integer>21</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/claude-kb-weekly.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/claude-kb-weekly-error.log</string>
+</dict>
+</plist>
