@@ -84,6 +84,46 @@ def save_periodic_state(state: dict) -> None:
     PERIODIC_STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
+def count_recent_flush_errors(session_id: str, max_lines: int = 400) -> int:
+    """flush.log の末尾を読んで、このセッションの直近の連続失敗数を返す。
+
+    flush.py は Result を「Result [<session_id>]: ...」形式でログするため、
+    セッションIDで正確に絞り込める（並走セッション混在に対応）。
+    古いログ（タグなし形式）はフォールバックとして対応。
+    """
+    if not LOG_FILE.exists():
+        return 0
+    try:
+        lines = LOG_FILE.read_text(encoding="utf-8").splitlines()[-max_lines:]
+    except OSError:
+        return 0
+
+    # タグ付き Result 行を抽出（新形式: "Result [<id>]: ..."）
+    success_tag = f"Result [{session_id}]: FLUSH_OK"
+    saved_tag   = f"Result [{session_id}]: saved to daily log"
+    error_tag   = f"Result [{session_id}]: FLUSH_ERROR"
+
+    results: list[bool] = []
+    for line in lines:
+        if success_tag in line or saved_tag in line:
+            results.append(True)
+        elif error_tag in line:
+            results.append(False)
+
+    if not results:
+        # 新形式のログがない（移行前の古いログのみ）→ 0 を返して unregister しない
+        return 0
+
+    # 末尾から連続失敗数をカウント
+    consecutive = 0
+    for success in reversed(results):
+        if not success:
+            consecutive += 1
+        else:
+            break
+    return consecutive
+
+
 def flush_session(session_id: str, transcript_path: Path, cwd: str = "") -> None:
     """session-end.py を呼んでフラッシュを起動する。"""
     session_end_hook = ROOT / "hooks" / "session-end.py"
@@ -304,14 +344,25 @@ def main() -> None:
         if current_turns <= last_turns:
             continue
 
+        # 連続失敗チェック: flush.log から直近の失敗数を確認、3 回以上で unregister
+        fail_count = count_recent_flush_errors(session_id)
+        if fail_count >= 3:
+            logging.warning("Session %s failed %d times consecutively, unregistering", session_id, fail_count)
+            unregister(session_id)
+            updated = True
+            continue
+
         logging.info("Periodic flush: session=%s turns %d→%d", session_id, last_turns, current_turns)
 
         try:
             flush_session(session_id, transcript_path, cwd=info.get("cwd", ""))
-            periodic_state[session_id] = {"timestamp": now, "turn_count": current_turns}
+            # 失敗カウントはflush.logのFLUSH_ERRORを次回チェックで加算する（子プロセスなので即時不明）
+            periodic_state[session_id] = {"timestamp": now, "turn_count": current_turns, "fail_count": 0}
             updated = True
         except Exception as e:
             logging.error("Failed to flush session %s: %s", session_id, e)
+            periodic_state[session_id] = {**sess_state, "fail_count": fail_count + 1}
+            updated = True
 
     # 終了したセッションのエントリを periodic_state からも掃除
     stale = [sid for sid in periodic_state if sid not in sessions and sid != "_meta"]

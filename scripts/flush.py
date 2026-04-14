@@ -247,18 +247,18 @@ def main():
     # Run the LLM extraction
     response = asyncio.run(run_flush(context, cwd=cwd))
 
-    # Append to daily log
+    # Append to daily log (session_id をログに含めることで並走セッション混在時も追跡可能)
     if response.startswith("FLUSH_OK"):
-        logging.info("Result: FLUSH_OK")
+        logging.info("Result [%s]: FLUSH_OK", session_id)
         append_to_daily_log(
             "FLUSH_OK - Nothing worth saving from this session", "Memory Flush"
         )
     elif response.startswith("FLUSH_ERROR:"):
-        logging.error("Result: %s", response)
+        logging.error("Result [%s]: %s", session_id, response)
         append_to_daily_log(response, "Memory Flush")
         _notify_error(f"flush failed: {response[:80]}")
     else:
-        logging.info("Result: saved to daily log (%d chars)", len(response))
+        logging.info("Result [%s]: saved to daily log (%d chars)", session_id, len(response))
         append_to_daily_log(response, "Session")
 
     # Update dedup state
