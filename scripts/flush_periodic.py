@@ -243,9 +243,19 @@ If the errors are transient (network, file-not-found for a deleted session), jus
     # 再帰ガード：self-heal から起動した Claude セッションでフックが再発火しないよう設定
     env["CLAUDE_INVOKED_BY"] = "self-heal"
 
+    # launchd は PATH が貧弱なので絶対パスで解決する
+    _candidates = [
+        "/Users/takemi/.local/bin/claude",
+        "/usr/local/bin/claude",
+        "/opt/homebrew/bin/claude",
+    ]
+    import shutil as _shutil
+    claude_bin = next((p for p in _candidates if Path(p).exists()), None) \
+        or _shutil.which("claude") or "claude"
+
     try:
         proc = subprocess.Popen(
-            ["claude", "-p", prompt, "--allowedTools", "Read,Edit,Glob,Grep,Bash"],
+            [claude_bin, "-p", prompt, "--allowedTools", "Read,Edit,Glob,Grep,Bash"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
@@ -258,7 +268,7 @@ If the errors are transient (network, file-not-found for a deleted session), jus
         proc.kill()
         logging.warning("Self-heal agent がタイムアウトしました")
     except FileNotFoundError:
-        logging.warning("Self-heal agent: PATH に 'claude' CLI が見つかりません")
+        logging.warning("Self-heal agent: claude CLI が見つかりません (試したパス: %s)", claude_bin)
     except Exception as e:
         logging.error("Self-heal agent の起動に失敗: %s", e)
 

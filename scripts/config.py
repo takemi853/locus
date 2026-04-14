@@ -30,8 +30,8 @@ def _resolve_data_dir() -> Path:
     return ROOT_DIR
 
 DATA_DIR = _resolve_data_dir()
-DAILY_DIR = DATA_DIR / "daily"
 KNOWLEDGE_DIR = DATA_DIR / "knowledge"
+DAILY_DIR = KNOWLEDGE_DIR / "daily"  # Quartz serves knowledge/, daily must be inside it
 WIKI_DIR = KNOWLEDGE_DIR / "wiki"
 DRAFT_DIR = KNOWLEDGE_DIR / "inbox"
 CONCEPTS_DIR = KNOWLEDGE_DIR / "concepts"   # legacy alias

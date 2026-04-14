@@ -192,7 +192,9 @@ def maybe_trigger_compilation() -> None:
 
     logging.info("End-of-day compilation triggered (after %d:00)", _compile_after_hour())
 
-    uv = next((p for p in ["/Users/takemi/.local/bin/uv", "/usr/local/bin/uv", "/opt/homebrew/bin/uv"] if Path(p).exists()), "uv")
+    import shutil as _shutil
+    _uv_candidates = [Path.home() / ".local/bin/uv", Path("/usr/local/bin/uv"), Path("/opt/homebrew/bin/uv")]
+    uv = next((str(p) for p in _uv_candidates if p.exists()), _shutil.which("uv") or "uv")
     cmd = [uv, "run", "--directory", str(ROOT), "python", str(compile_script)]
 
     kwargs: dict = {}

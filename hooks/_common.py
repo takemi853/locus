@@ -64,15 +64,18 @@ def extract_conversation_context(
 
 def uv_path() -> str:
     """uv のフルパスを返す（launchd は PATH が最小限なのでフルパス必須）。"""
+    import os, shutil
+    home = Path.home()
     candidates = [
-        "/Users/takemi/.local/bin/uv",
-        "/usr/local/bin/uv",
-        "/opt/homebrew/bin/uv",
+        home / ".local/bin/uv",
+        Path("/usr/local/bin/uv"),
+        Path("/opt/homebrew/bin/uv"),
     ]
     for p in candidates:
-        if Path(p).exists():
-            return p
-    return "uv"
+        if p.exists():
+            return str(p)
+    found = shutil.which("uv")
+    return found if found else "uv"
 
 
 def detach_popen_kwargs() -> dict:

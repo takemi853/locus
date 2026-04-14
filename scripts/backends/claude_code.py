@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"]
 
+from pathlib import Path as _Path
 _CLAUDE_CANDIDATES = [
-    "/Users/takemi/.local/bin/claude",
+    str(_Path.home() / ".local/bin/claude"),
     "/usr/local/bin/claude",
     "/opt/homebrew/bin/claude",
 ]

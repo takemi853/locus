@@ -8,6 +8,7 @@ scripts/state.json
 scripts/last-flush.json
 scripts/periodic-state.json
 scripts/active-sessions.json
+scripts/active-session.json
 scripts/flush.log
 scripts/compile.log
 scripts/session-flush-*

@@ -17,6 +17,19 @@ You don't manually organize your knowledge. You have conversations, and the LLM 
 
 ---
 
+## 鉄則: inbox → wiki への昇格は必ず人間のレビューを経ること
+
+`compile.py` が生成した記事は必ず `inbox/wiki/` に入る（ドラフト）。
+`wiki/` への昇格は `/study wiki/<slug>` スキルを通じた人間のレビュー後のみ許可する。
+
+**禁止事項:**
+- スクリプト・エージェントが自動で `inbox/wiki/` → `wiki/` に移動すること
+- `wiki/` ディレクトリへの直接書き込み（`compile.py` 含む）
+
+**理由:** LLM が生成した記事には誤り・誇張・重複が含まれうる。知識の品質は人間が担保する。
+
+---
+
 ## Architecture
 
 ### Layer 1: `daily/` - Conversation Logs (Immutable Source)
