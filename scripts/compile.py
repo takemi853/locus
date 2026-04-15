@@ -158,6 +158,25 @@ verified: false
 - Key Points は太字ラベル付きで（`- **ラベル**：説明`）
 - Sources には「何を根拠にしたか」の具体的な説明を書く
 
+### ファクトチェック（各記事作成・更新の直後に必ず実行）
+
+記事を書いたら、その記事に戻って以下を確認する：
+
+1. **ソース照合**: 記事内の具体的な主張（年号、数値、固有名詞、手順、バージョン）が
+   元のdailyログに実際に記述されているかを照合する
+2. **問題なし** → frontmatter の `verified: false` を `verified: true` に変更する
+3. **不確かな主張がある** → `verified: false` のまま、`## Sources` の後に以下を追加する：
+
+```
+> [!unverified] 未検証の情報
+> 以下はdailyログに明示的な根拠がなく、要確認です：
+> - 主張1（なぜ不確かか）
+> - 主張2（なぜ不確かか）
+```
+
+注意: 「根拠がない」とは「dailyログのどこを読んでも確認できない」こと。
+推測・補完・一般知識で書いた内容は必ずフラグを立てること。
+
 ### 最後に必ず実行
 以下の形式で `{KNOWLEDGE_DIR / 'log.md'}` に追記する：
 ```
@@ -253,6 +272,11 @@ def main():
     articles = list_wiki_articles()
     print(f"\nCompilation complete. Total cost: ${total_cost:.2f}")
     print(f"Knowledge base: {len(articles)} articles")
+
+    # インデックス再生成（LLM不要・高速）
+    print("\nインデックスを再生成中...")
+    from reindex import run as reindex_run
+    reindex_run()
 
 
 if __name__ == "__main__":

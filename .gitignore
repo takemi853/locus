@@ -11,6 +11,10 @@ scripts/active-sessions.json
 scripts/active-session.json
 scripts/flush.log
 scripts/compile.log
+scripts/api.log
+scripts/weekly.log
+scripts/flush_stderr.log
+scripts/cc_feed_import_state.json
 scripts/session-flush-*
 scripts/flush-context-*
 
@@ -32,3 +36,4 @@ scripts/uv.lock
 Thumbs.db
 
 .obsidian/
+.serena/

@@ -226,9 +226,11 @@ def collect_new_errors(since_ts: float) -> list[str]:
             continue
         try:
             with open(log_file, encoding="utf-8", errors="replace") as f:
+                in_recent_error = False  # 直前のタイムスタンプ付き行が recent error か
                 for line in f:
                     line = line.rstrip()
                     if not line:
+                        in_recent_error = False
                         continue
                     # 先頭のタイムスタンプでフィルタリング
                     m = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
@@ -239,11 +241,18 @@ def collect_new_errors(since_ts: float) -> list[str]:
                             ).timestamp()
                         except ValueError:
                             ts = 0.0
-                        if ts <= since_ts:
-                            continue
-                    # タイムスタンプなし行は常に含める（Traceback など）
-                    if "ERROR" in line or "CRITICAL" in line or "Traceback" in line or "Error:" in line:
-                        errors.append(f"[{log_file.name}] {line}")
+                        in_recent_error = ts > since_ts and (
+                            "ERROR" in line or "CRITICAL" in line
+                        )
+                        if in_recent_error:
+                            errors.append(f"[{log_file.name}] {line}")
+                    else:
+                        # タイムスタンプなし行（Traceback 継続行など）は、
+                        # 直前のタイムスタンプ付き行が recent error の場合のみ含める
+                        if in_recent_error and (
+                            "Traceback" in line or "Error:" in line or line.startswith("  ")
+                        ):
+                            errors.append(f"[{log_file.name}] {line}")
         except OSError:
             pass
     return errors
