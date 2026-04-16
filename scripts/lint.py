@@ -1,8 +1,8 @@
 """
 Lint the knowledge base for structural and semantic health.
 
-Runs 7 checks: broken links, orphan pages, orphan sources, stale articles,
-contradictions (LLM), missing backlinks, and sparse articles.
+Runs 8 checks: broken links, orphan pages, orphan sources, stale articles,
+contradictions (LLM), missing backlinks, sparse articles, and invalid type fields.
 
 Usage:
     uv run python lint.py                    # all checks
@@ -15,7 +15,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from config import KNOWLEDGE_DIR, REPORTS_DIR, now_iso, today_iso
+from config import KNOWLEDGE_DIR, LOG_FILE, REPORTS_DIR, now_iso, today_iso
 from utils import (
     count_inbound_links,
     extract_wikilinks,
@@ -33,7 +33,11 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
 def check_broken_links() -> list[dict]:
-    """Check for [[wikilinks]] that point to non-existent articles."""
+    """Check for [[wikilinks]] that point to non-existent articles.
+
+    Scrapbox 思想：存在しないページへのリンクはエラーではなくスタブ候補。
+    severity を suggestion にして「次に書くべき記事」として扱う。
+    """
     issues = []
     for article in list_wiki_articles():
         content = article.read_text(encoding="utf-8")
@@ -43,16 +47,20 @@ def check_broken_links() -> list[dict]:
                 continue  # daily log references are valid
             if not wiki_article_exists(link):
                 issues.append({
-                    "severity": "error",
-                    "check": "broken_link",
+                    "severity": "suggestion",
+                    "check": "stub_link",
                     "file": str(rel),
-                    "detail": f"Broken link: [[{link}]] - target does not exist",
+                    "detail": f"スタブ候補: [[{link}]] はまだ存在しない記事へのリンクです（作成を検討）",
                 })
     return issues
 
 
 def check_orphan_pages() -> list[dict]:
-    """Check for articles with zero inbound links."""
+    """Check for articles with zero inbound links.
+
+    Scrapbox 思想：まだリンクされていないページは普通に存在する。
+    警告は出すが、エラーではなく suggestion として扱う。
+    """
     issues = []
     for article in list_wiki_articles():
         rel = article.relative_to(KNOWLEDGE_DIR)
@@ -60,10 +68,10 @@ def check_orphan_pages() -> list[dict]:
         inbound = count_inbound_links(link_target)
         if inbound == 0:
             issues.append({
-                "severity": "warning",
+                "severity": "suggestion",
                 "check": "orphan_page",
                 "file": str(rel),
-                "detail": f"Orphan page: no other articles link to [[{link_target}]]",
+                "detail": f"孤立ページ: [[{link_target}]] にリンクしている記事がありません（他の記事からリンクを追加すると繋がりが生まれます）",
             })
     return issues
 
@@ -145,6 +153,43 @@ def check_sparse_articles() -> list[dict]:
     return issues
 
 
+VALID_TYPES = {"concept", "pattern", "how-to", "reference"}
+
+
+def check_invalid_type() -> list[dict]:
+    """Check for articles missing or having an invalid type field."""
+    import re
+    issues = []
+    for article in list_wiki_articles():
+        if article.name == "index.md":
+            continue
+        rel = article.relative_to(KNOWLEDGE_DIR)
+        try:
+            header = article.read_bytes()[:512].decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        fm_m = re.match(r"^---\n(.*?)\n---", header, re.DOTALL)
+        if not fm_m:
+            continue
+        fm_text = fm_m.group(1)
+        type_m = re.search(r"^type:\s*(.+?)\s*$", fm_text, re.MULTILINE)
+        if not type_m:
+            issues.append({
+                "severity": "error",
+                "check": "invalid_type",
+                "file": str(rel),
+                "detail": f"type フィールドがありません（concept/pattern/how-to/reference のいずれかを指定）",
+            })
+        elif type_m.group(1).strip("\"'") not in VALID_TYPES:
+            issues.append({
+                "severity": "error",
+                "check": "invalid_type",
+                "file": str(rel),
+                "detail": f"type: \"{type_m.group(1)}\" は無効です（有効値: {', '.join(sorted(VALID_TYPES))}）",
+            })
+    return issues
+
+
 async def check_contradictions() -> list[dict]:
     """Use LLM to detect contradictions across articles."""
     from claude_agent_sdk import (
@@ -197,7 +242,7 @@ Do NOT output anything else - no preamble, no explanation, just the formatted li
         return [{"severity": "error", "check": "contradiction", "file": "(system)", "detail": f"LLM check failed: {e}"}]
 
     issues = []
-    if "NO_ISSUES" not in response:
+    if not response.strip().startswith("NO_ISSUES"):
         for line in response.strip().split("\n"):
             line = line.strip()
             if line.startswith("CONTRADICTION:") or line.startswith("INCONSISTENCY:"):
@@ -267,6 +312,7 @@ def main():
         ("Stale articles", check_stale_articles),
         ("Missing backlinks", check_missing_backlinks),
         ("Sparse articles", check_sparse_articles),
+        ("Invalid type", check_invalid_type),
     ]
 
     for name, check_fn in checks:
@@ -295,6 +341,16 @@ def main():
     state = load_state()
     state["last_lint"] = now_iso()
     save_state(state)
+
+    # log.md に記録
+    report_rel = f"reports/lint-{today_iso()}"
+    log_entry = (
+        f"\n## [{now_iso()}] lint | {errors} errors, {warnings} warnings, {suggestions} suggestions\n"
+        f"- Report: [[{report_rel}]]\n"
+    )
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with LOG_FILE.open("a", encoding="utf-8") as f:
+        f.write(log_entry)
 
     # Summary
     errors = sum(1 for i in all_issues if i["severity"] == "error")

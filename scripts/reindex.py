@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from config import DAILY_DIR, DRAFT_DIR, KNOWLEDGE_DIR, PROJECTS_DIR, today_iso
+from config import DAILY_DIR, DRAFT_DIR, KNOWLEDGE_DIR, PROJECTS_DIR, WIKI_DIR, today_iso
 
 DRAFT_WIKI_DIR = DRAFT_DIR / "wiki"
 
@@ -213,6 +213,79 @@ def _inbox_index(articles: list[tuple[str, str, str, list[str]]]) -> str:
     return "\n".join(lines)
 
 
+# ── Co-link discovery（Scrapbox 式の暗黙的関連検出）────────────────────
+
+_WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:\|[^\]]+)?\]\]")
+
+
+def _collect_article_links(search_dirs: list[Path]) -> dict[str, set[str]]:
+    """各記事が持つ wikilink のセットを返す。daily/ リンクは除外。"""
+    result: dict[str, set[str]] = {}
+    for d in search_dirs:
+        if not d.is_dir():
+            continue
+        for f in d.glob("*.md"):
+            if f.name in ("index.md", "discovered-connections.md"):
+                continue
+            try:
+                content = f.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            links = {
+                m.group(1).strip()
+                for m in _WIKILINK_RE.finditer(content)
+                if not m.group(1).startswith("daily/")
+            }
+            if links:
+                rel = str(f.relative_to(KNOWLEDGE_DIR)).replace(".md", "").replace("\\", "/")
+                result[rel] = links
+    return result
+
+
+def _compute_colinks(
+    article_links: dict[str, set[str]], min_shared: int = 2, top_n: int = 30
+) -> list[tuple[str, str, int, list[str]]]:
+    """min_shared 以上の共通リンクを持つ記事ペアを返す（多い順）。"""
+    slugs = list(article_links.keys())
+    pairs = []
+    for i, a in enumerate(slugs):
+        for b in slugs[i + 1:]:
+            shared = sorted(article_links[a] & article_links[b])
+            if len(shared) >= min_shared:
+                pairs.append((a, b, len(shared), shared))
+    return sorted(pairs, key=lambda x: x[2], reverse=True)[:top_n]
+
+
+def _colink_page(pairs: list[tuple[str, str, int, list[str]]]) -> str:
+    """knowledge/wiki/discovered-connections.md の内容を生成する。"""
+    now = today_iso()
+    lines = [
+        "---",
+        'title: "発見された繋がり（共リンク）"',
+        'tags: ["meta", "graph"]',
+        'type: reference',
+        f'updated: "{now}"',
+        "---",
+        "",
+        "# 発見された繋がり（共リンク）",
+        "",
+        "> 2つ以上の共通リンクを持つ記事ペアを自動検出。Scrapbox の co-occurrence と同じ原理。",
+        "> 明示的なラベルなしに、リンクの重なりから暗黙的な関連性が浮かび上がる。",
+        "",
+        "| ページ A | ページ B | 共通リンク数 | 共通リンク |",
+        "|---------|---------|------------|----------|",
+    ]
+    for a, b, count, shared in pairs:
+        shared_str = " · ".join(f"[[{s}]]" for s in shared[:3])
+        if len(shared) > 3:
+            shared_str += f" ほか{len(shared) - 3}件"
+        lines.append(f"| [[{a}]] | [[{b}]] | {count} | {shared_str} |")
+    if not pairs:
+        lines.append("| — | — | — | 共通リンクが2件以上のペアはまだありません |")
+    lines += ["", f"*{now} 時点 · reindex.py が自動生成*"]
+    return "\n".join(lines) + "\n"
+
+
 # ── メイン ─────────────────────────────────────────────────────────────
 
 def run() -> None:
@@ -272,6 +345,14 @@ def run() -> None:
     inbox_idx_path = DRAFT_WIKI_DIR / "index.md"
     inbox_idx_path.write_text(_inbox_index(inbox_articles), encoding="utf-8")
     print(f"  inbox/wiki/index.md  ({len(inbox_articles)} articles)")
+
+    # discovered-connections.md（Scrapbox 式 co-link 検出）
+    article_links = _collect_article_links([WIKI_DIR, DRAFT_WIKI_DIR])
+    colink_pairs = _compute_colinks(article_links)
+    colink_path = WIKI_DIR / "discovered-connections.md"
+    WIKI_DIR.mkdir(parents=True, exist_ok=True)
+    colink_path.write_text(_colink_page(colink_pairs), encoding="utf-8")
+    print(f"  wiki/discovered-connections.md  ({len(colink_pairs)} pairs)")
 
     print(f"\n完了: {len(log_files)} 日分 / {len(all_sessions)} プロジェクト")
 

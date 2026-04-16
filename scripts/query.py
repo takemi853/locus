@@ -16,7 +16,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from config import KNOWLEDGE_DIR, QA_DIR, now_iso
+from config import KNOWLEDGE_DIR, LOG_FILE, QA_DIR, now_iso
 from utils import load_state, read_all_wiki_content, save_state
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -88,6 +88,13 @@ consulting the knowledge base below.
     state = load_state()
     state["query_count"] = state.get("query_count", 0) + 1
     save_state(state)
+
+    # log.md に記録（file-back モードは LLM 側が書くのでここでは non-file-back のみ）
+    if not file_back:
+        log_entry = f"\n## [{now_iso()}] query | {question[:60]}\n- Question: {question}\n"
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(log_entry)
 
     return answer
 

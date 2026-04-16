@@ -211,6 +211,23 @@ verified: false
 
 ---
 
+## 記事タイプ別の構造（type フィールドに応じて使い分ける）
+
+| type | 使うセクション | 特徴 |
+|------|-------------|------|
+| `concept` | Key Points / Details / Related Concepts / Sources | デフォルト。概念・設計思想の解説 |
+| `pattern` | Key Points / **Anti-pattern** / **Correct Pattern** / When to Apply / Related Concepts / Sources | アンチパターン＋正しいパターンをコード例付きで |
+| `how-to` | **Prerequisites** / **Steps** / **Caveats** / Related Concepts / Sources | 番号付き手順。Caveats に注意点をまとめる |
+| `reference` | **Overview** / **表（markdown table）** / Notes / Related Concepts / Sources | 比較表・設定値一覧を表形式で |
+
+### タイプ別の追加規則
+- `pattern`：Anti-pattern に ❌ コード例、Correct Pattern に ✅ コード例を必ず含める
+- `how-to`：Steps は番号付きリスト（`1. 〜 2. 〜`）で書く
+- `reference`：Markdown テーブルを必ず1つ以上含める
+- `concept`：Key Points と Details を充実させ、概念の本質を深掘りする
+
+---
+
 ## ルール
 
 ### 何を記事にするか
@@ -236,7 +253,7 @@ verified: false
 
 ### 品質基準
 - frontmatter の全フィールドを必ず埋める
-- Related Concepts には必ず2件以上の `[[wiki/スラグ]]` wikilink を書く
+- Related Concepts には必ず2件以上の `[[wiki/スラグ]]` wikilink を書く（記事がまだ存在しなくてもよい — スタブとして積極的にリンクする）
 - wikilink のパスは `wiki/スラグ` 形式（`concepts/` や `connections/` は廃止）
 - Key Points は太字ラベル付きで（`- **ラベル**：説明`）
 - Sources には「何を根拠にしたか」の具体的な説明を書く
