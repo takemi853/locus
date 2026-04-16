@@ -4,6 +4,7 @@ Generate index pages from daily logs — no LLM, no side effects.
 Outputs:
   knowledge/daily/index.md          — 日付一覧（逆順）
   knowledge/projects/<slug>.md      — プロジェクトごとのセッション一覧
+  knowledge/inbox/wiki/index.md     — inbox ドラフト記事をタグ別に一覧
 
 各ページは大元の daily ログを wikilink で参照するだけで、内容を複製しない。
 
@@ -18,7 +19,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from config import DAILY_DIR, KNOWLEDGE_DIR, PROJECTS_DIR, today_iso
+from config import DAILY_DIR, DRAFT_DIR, KNOWLEDGE_DIR, PROJECTS_DIR, today_iso
+
+DRAFT_WIKI_DIR = DRAFT_DIR / "wiki"
 
 # ── パーサ ─────────────────────────────────────────────────────────────
 
@@ -146,6 +149,70 @@ def _project_page(project: str, sessions: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
+# ── Inbox index ────────────────────────────────────────────────────────
+
+def _parse_inbox_frontmatter(content: str) -> dict[str, object]:
+    """frontmatter から title / tags / created を抽出する（YAML依存なし）。"""
+    m = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+    if not m:
+        return {}
+    block = m.group(1)
+    result: dict[str, object] = {}
+
+    for line in block.splitlines():
+        # title: "..."  or  title: ...
+        km = re.match(r'^(\w+):\s*["\']?(.+?)["\']?\s*$', line)
+        if km:
+            result[km.group(1)] = km.group(2)
+        # tags: [tag1, tag2]
+        tm = re.match(r'^tags:\s*\[(.+)\]', line)
+        if tm:
+            result["tags"] = [t.strip().strip("\"'") for t in tm.group(1).split(",")]
+
+    return result
+
+
+def _inbox_index(articles: list[tuple[str, str, str, list[str]]]) -> str:
+    """inbox/wiki/index.md の本文を生成する。
+
+    articles: [(created, slug, title, tags), ...]  ← created 降順でソート済み
+    """
+    now = today_iso()
+    total = len(articles)
+
+    lines = [
+        "---",
+        'title: "Inbox — ドラフト記事一覧"',
+        'tags: ["inbox", "index"]',
+        f'updated: "{now}"',
+        "---",
+        "",
+        f"# Inbox ドラフト（{total} 件）",
+        "",
+        "> `/study wiki/<slug>` でレビュー → wiki/ に昇格、または削除。",
+        "",
+    ]
+
+    # ── タグ別グループ ───────────────────────────────────────────────
+    tag_groups: dict[str, list[tuple[str, str, str]]] = {}
+    for created, slug, title, tags in articles:
+        primary = tags[0] if tags else "その他"
+        tag_groups.setdefault(primary, []).append((created, slug, title))
+
+    for tag in sorted(tag_groups):
+        rows = sorted(tag_groups[tag], key=lambda r: r[0], reverse=True)
+        lines += [f"## {tag}  ({len(rows)}件)", ""]
+        lines += [
+            "| 作成日 | 記事 |",
+            "|--------|------|",
+        ]
+        for created, slug, title in rows:
+            lines.append(f"| {created} | [[inbox/wiki/{slug}\\|{title}]] |")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 # ── メイン ─────────────────────────────────────────────────────────────
 
 def run() -> None:
@@ -183,6 +250,28 @@ def run() -> None:
         path = PROJECTS_DIR / f"{slug}.md"
         path.write_text(_project_page(project, sessions), encoding="utf-8")
         print(f"  projects/{slug}.md  ({len(sessions)} sessions)")
+
+    # inbox/wiki/index.md
+    inbox_articles: list[tuple[str, str, str, list[str]]] = []
+    if DRAFT_WIKI_DIR.is_dir():
+        for f in DRAFT_WIKI_DIR.glob("*.md"):
+            if f.name == "index.md":
+                continue
+            try:
+                fm = _parse_inbox_frontmatter(f.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+            title = str(fm.get("title", f.stem))
+            tags = fm.get("tags", [])
+            if not isinstance(tags, list):
+                tags = [str(tags)]
+            created = str(fm.get("created", ""))
+            inbox_articles.append((created, f.stem, title, tags))
+
+    inbox_articles.sort(key=lambda r: r[0], reverse=True)
+    inbox_idx_path = DRAFT_WIKI_DIR / "index.md"
+    inbox_idx_path.write_text(_inbox_index(inbox_articles), encoding="utf-8")
+    print(f"  inbox/wiki/index.md  ({len(inbox_articles)} articles)")
 
     print(f"\n完了: {len(log_files)} 日分 / {len(all_sessions)} プロジェクト")
 

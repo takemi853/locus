@@ -15,7 +15,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
+import re
 import sys
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 from config import (
@@ -60,6 +64,85 @@ def _existing_article_titles() -> str:
         title = title_match.group(1) if title_match else slug
         lines.append(f"- `{slug}` — {title}")
     return "\n".join(lines) if lines else "（まだ記事なし）"
+
+
+# ── 画像検索 ──────────────────────────────────────────────────────────
+
+# 画像を埋め込む価値があるタグ（視覚的・地理的・歴史的トピック）
+_VISUAL_TAGS = {
+    "世界遺産検定", "自然遺産", "文化遺産", "複合遺産", "危機遺産",
+    "アフリカ", "アジア", "ヨーロッパ", "アメリカ", "オセアニア",
+    "歴史", "地理", "建築", "自然",
+}
+
+
+def _fetch_wiki_thumbnail(title: str, en_aliases: list[str]) -> str | None:
+    """Wikipedia REST API でサムネイル URL を取得する。英語エイリアス → 日本語タイトルの順で試す。"""
+    candidates = [*en_aliases, title]
+    for cand in candidates:
+        for lang in ("en", "ja"):
+            try:
+                encoded = urllib.parse.quote(cand.replace(" ", "_"))
+                url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded}"
+                req = urllib.request.Request(url, headers={"User-Agent": "locus-kb/1.0"})
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    data = json.loads(r.read())
+                thumb = data.get("thumbnail", {}).get("source")
+                if thumb:
+                    return thumb
+            except Exception:
+                continue
+    return None
+
+
+def _embed_image(article_path: Path) -> bool:
+    """視覚的なトピックの記事に Wikipedia サムネイルを埋め込む。
+    既に画像がある場合・視覚的タグがない場合はスキップ。"""
+    content = article_path.read_text(encoding="utf-8")
+    if "![" in content:
+        return False
+
+    fm_m = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
+    if not fm_m:
+        return False
+    fm_text = fm_m.group(1)
+
+    # tags を確認
+    tags_m = re.search(r'^tags:\s*\[(.+)\]', fm_text, re.MULTILINE)
+    tags = {t.strip().strip("\"'") for t in tags_m.group(1).split(",")} if tags_m else set()
+    if not (tags & _VISUAL_TAGS):
+        return False
+
+    title_m = re.search(r'^title:\s*["\']?(.+?)["\']?\s*$', fm_text, re.MULTILINE)
+    title = title_m.group(1) if title_m else ""
+
+    aliases_m = re.search(r'^aliases:\s*\[(.+)\]', fm_text, re.MULTILINE)
+    aliases = [a.strip().strip("\"'") for a in aliases_m.group(1).split(",")] if aliases_m else []
+    en_aliases = [a for a in aliases if a.isascii() and len(a) > 3]
+
+    thumb = _fetch_wiki_thumbnail(title, en_aliases)
+    if not thumb:
+        return False
+
+    # frontmatter に image フィールドを追加
+    new_fm = fm_text.rstrip() + f'\nimage: "{thumb}"\n'
+    # H1 の直後に画像を挿入（intro 段落の前）
+    body = content[fm_m.end():]
+    h1_m = re.search(r"^# .+\n\n", body, re.MULTILINE)
+    if h1_m:
+        insert_at = fm_m.end() + h1_m.end()
+        new_content = (
+            content[:fm_m.start()]
+            + "---\n" + new_fm + "---\n"
+            + body[:h1_m.end()]
+            + f"![{title}]({thumb})\n\n"
+            + body[h1_m.end():]
+        )
+    else:
+        new_content = content.replace(fm_text, new_fm)
+
+    article_path.write_text(new_content, encoding="utf-8")
+    return True
 
 
 async def compile_daily_log(log_path: Path, state: dict) -> float:
@@ -197,12 +280,27 @@ verified: false
 
     cost = 0.0
 
+    # コンパイル前の記事一覧（新規/更新検出用）
+    before_mtimes = {p: p.stat().st_mtime for p in DRAFT_WIKI_DIR.glob("*.md")}
+
     try:
         backend = load_backend()
         await backend.agentic(prompt=prompt, cwd=str(ROOT_DIR), max_turns=30)
     except Exception as e:
         print(f"  エラー: {e}")
         return 0.0
+
+    # 新規/更新された記事に画像を埋め込む
+    image_count = 0
+    for p in DRAFT_WIKI_DIR.glob("*.md"):
+        if p.name == "index.md":
+            continue
+        prev_mtime = before_mtimes.get(p)
+        if prev_mtime is None or p.stat().st_mtime > prev_mtime:
+            if _embed_image(p):
+                image_count += 1
+    if image_count:
+        print(f"  画像埋め込み: {image_count} 件")
 
     # 処理済み状態を記録
     rel_path = log_path.name
