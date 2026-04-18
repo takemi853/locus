@@ -17,6 +17,16 @@ scripts/flush_stderr.log
 scripts/cc_feed_import_state.json
 scripts/news-state.json
 scripts/news-costs.json
+scripts/news-preferences.json
+scripts/news-latest.json
+scripts/news-[0-9]*.json
+scripts/news-feedback.json
+scripts/news-feedback-log.md
+scripts/news-digest.json
+scripts/news-interests.json
+scripts/tools-feedback.json
+scripts/claude-tips.json
+scripts/news-bot-state.json
 scripts/session-flush-*
 scripts/flush-context-*
 
