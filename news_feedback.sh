@@ -12,8 +12,8 @@ if [ -f ~/.zshenv ]; then
 fi
 
 CLAUDE="${CLAUDE_BIN:-$(command -v claude || echo $HOME/.local/bin/claude)}"
-COMPILER_DIR="${COMPILER_DIR:-$HOME/Projects/app/claude-memory-compiler}"
-LOCUS_PRIVATE_DIR="${LOCUS_PRIVATE_DIR:-$HOME/Projects/locus-private}"
+COMPILER_DIR="${COMPILER_DIR:-$HOME/Projects/locus-project/locus}"
+LOCUS_PRIVATE_DIR="${LOCUS_PRIVATE_DIR:-$HOME/Projects/locus-project/locus-private}"
 LOG_FILE="/tmp/locus-news-feedback.log"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }

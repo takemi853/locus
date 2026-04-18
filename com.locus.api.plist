@@ -12,9 +12,9 @@
         <string>run</string>
         <string>--no-sync</string>
         <string>--directory</string>
-        <string>/Users/takemi/Projects/app/claude-memory-compiler</string>
+        <string>/Users/takemi/Projects/locus-project/locus</string>
         <string>python</string>
-        <string>/Users/takemi/Projects/app/claude-memory-compiler/scripts/api_server.py</string>
+        <string>/Users/takemi/Projects/locus-project/locus/scripts/api_server.py</string>
     </array>
 
     <!-- ログイン時に自動起動 -->
@@ -29,9 +29,9 @@
     <integer>10</integer>
 
     <key>StandardOutPath</key>
-    <string>/Users/takemi/Projects/app/claude-memory-compiler/scripts/api.log</string>
+    <string>/Users/takemi/Projects/locus-project/locus/scripts/api.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/takemi/Projects/app/claude-memory-compiler/scripts/api.log</string>
+    <string>/Users/takemi/Projects/locus-project/locus/scripts/api.log</string>
 </dict>
 </plist>

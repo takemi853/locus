@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.locus.news-brief</string>
+
+    <!-- 収集 → Claude Code 解釈生成 → 通知 のパイプライン -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/takemi/Projects/locus-project/locus/auto_brief.sh</string>
+    </array>
+
+    <!-- 毎日 07:00 と 19:00 の2回実行 -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key><integer>7</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>19</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/takemi/.local/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/takemi</string>
+        <key>SOCIAL_DATA_API_KEY</key>
+        <string>7290|2duyfPSisGI6WItHz1jO0zxFrfpdVlG1OhUKQRk4c54db33d</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/locus-auto-brief.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/locus-auto-brief-error.log</string>
+</dict>
+</plist>
