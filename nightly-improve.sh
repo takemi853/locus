@@ -42,12 +42,14 @@ for repo in "$COMPILER_DIR" "$LOCUS_PRIVATE_DIR"; do
   fi
 done
 
-# ── Step 1: /improve 実行 ─────────────────────────────────────────────
-log "/improve 実行..."
+# ── Step 1: /improve 実行（最大 1 時間で wall-clock 強制終了）────────
+log "/improve 実行 (max 60min)..."
+TIMEOUT_BIN="${TIMEOUT_BIN:-$(command -v gtimeout || command -v timeout)}"
 PR_OUTPUT=$(
   cd "$LOCUS_PRIVATE_DIR" && \
-  "$CLAUDE" --print "/improve" --dangerously-skip-permissions 2>&1 | tee -a "$LOG_FILE"
-)
+  ${TIMEOUT_BIN:+$TIMEOUT_BIN 3600} \
+    "$CLAUDE" --print "/improve" --dangerously-skip-permissions 2>&1 | tee -a "$LOG_FILE"
+) || log "[warn] claude が exit 非0 (timeout? error?)"
 
 # ── Step 2: PR が立ったかチェック ────────────────────────────────────
 PR_COUNT=$(echo "$PR_OUTPUT" | grep -c "^PRs:" || echo "0")
