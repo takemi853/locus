@@ -24,7 +24,7 @@ from pathlib import Path
 
 from config import (
     AGENTS_FILE, DATA_DIR, DAILY_DIR, KNOWLEDGE_DIR,
-    DRAFT_DIR,
+    DRAFT_DIR, LOG_FILE,
     now_iso,
 )
 
@@ -44,7 +44,6 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 def _extract_projects_from_log(log_content: str) -> list[str]:
     """dailyログの **Project:** 行からプロジェクト名を抽出する。"""
-    import re
     found = re.findall(r"\*\*Project:\*\*\s*`([^`]+)`", log_content)
     # パス末尾のディレクトリ名（例: /Users/x/Projects/locus → locus）
     return list(dict.fromkeys(Path(p).name for p in found if p))
@@ -244,7 +243,7 @@ verified: false
 - 新規記事の書き込み先：`{DRAFT_WIKI_DIR}/スラグ.md`
 - 既存 inbox 記事の更新先：`{DRAFT_WIKI_DIR}/スラグ.md`（既存を Read してから Edit）
 - **触ってはいけない**：`{KNOWLEDGE_DIR / 'index.md'}`（昇格時のみ更新）
-- ログ追記先：`{KNOWLEDGE_DIR / 'log.md'}`
+- ログ追記先：`{LOG_FILE}`
 
 ### スラグ命名規則
 - 英語、ケバブケース（例：`session-end-hook`, `uv-no-sync-flag`）
@@ -278,7 +277,7 @@ verified: false
 推測・補完・一般知識で書いた内容は必ずフラグを立てること。
 
 ### 最後に必ず実行
-以下の形式で `{KNOWLEDGE_DIR / 'log.md'}` に追記する：
+以下の形式で `{LOG_FILE}` に追記する：
 ```
 ## [{timestamp}] compile | {log_path.name}
 - Source: daily/{log_path.name}

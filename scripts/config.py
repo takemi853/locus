@@ -43,9 +43,10 @@ REPORTS_DIR = DATA_DIR / "reports"
 WEEKLY_DIR = KNOWLEDGE_DIR / "weekly"
 MONTHLY_DIR = KNOWLEDGE_DIR / "monthly"
 PROJECTS_DIR = KNOWLEDGE_DIR / "projects"
+NEWS_DIR = KNOWLEDGE_DIR / "news"
 
 INDEX_FILE = KNOWLEDGE_DIR / "index.md"
-LOG_FILE = KNOWLEDGE_DIR / "log.md"
+LOG_FILE = KNOWLEDGE_DIR / "archive" / "build-log.md"  # compile.py のビルドログ（旧 knowledge/log.md）
 STATE_FILE = SCRIPTS_DIR / "state.json"  # ランタイム状態はシステム側に置く
 
 
