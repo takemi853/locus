@@ -11,13 +11,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCUS_PRIVATE_DIR="${LOCUS_PRIVATE_DIR:-$HOME/Projects/locus-private}"
 
 # ~/.zshenv から環境変数を読み込む（launchd は zshenv を読まないため）
 if [ -f ~/.zshenv ]; then
     source ~/.zshenv 2>/dev/null || true
 fi
-UV="/Users/takemi/.local/bin/uv"
-CLAUDE="/Users/takemi/.local/bin/claude"
+UV="${UV_BIN:-$(command -v uv || echo $HOME/.local/bin/uv)}"
+CLAUDE="${CLAUDE_BIN:-$(command -v claude || echo $HOME/.local/bin/claude)}"
 DATA_DIR="$SCRIPT_DIR/scripts"
 LOG_FILE="/tmp/locus-auto-brief.log"
 
@@ -31,7 +32,7 @@ log "=== auto_brief.sh 開始 ==="
 
 # ── Step 0: 最新コードを fast-forward pull（mini 運用の整合性確保）─────
 log "git pull 開始..."
-for repo in "$SCRIPT_DIR" /Users/takemi/Projects/locus-private; do
+for repo in "$SCRIPT_DIR" "$LOCUS_PRIVATE_DIR"; do
   if ! git -C "$repo" pull --ff-only 2>&1 | tee -a "$LOG_FILE"; then
     log "[abort] $repo の git pull に失敗。手動解決が必要です"
     notify_fail "$(basename "$repo") pull failed"
@@ -49,13 +50,13 @@ log "収集完了"
 
 # ── Step 2: 英語記事を翻訳 ────────────────────────────────────────────
 log "翻訳開始..."
-(cd /Users/takemi/Projects/locus-private && \
+(cd "$LOCUS_PRIVATE_DIR" && \
   "$CLAUDE" --print "/news-translate" --dangerously-skip-permissions) 2>&1 | tee -a "$LOG_FILE"
 log "翻訳完了"
 
 # ── Step 3: Claude Code でダイジェスト生成 ────────────────────────────
 log "ダイジェスト生成開始..."
-(cd /Users/takemi/Projects/locus-private && \
+(cd "$LOCUS_PRIVATE_DIR" && \
   "$CLAUDE" --print "/news silent" --dangerously-skip-permissions) 2>&1 | tee -a "$LOG_FILE"
 log "ダイジェスト生成完了"
 
