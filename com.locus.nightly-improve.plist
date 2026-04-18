@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.locus.nightly-improve</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/takemi/Projects/locus-project/locus/nightly-improve.sh</string>
+    </array>
+
+    <!-- 毎日 03:00 (JST) に実行 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>3</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/takemi/.local/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/takemi</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/locus-nightly-improve.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/locus-nightly-improve-error.log</string>
+</dict>
+</plist>
