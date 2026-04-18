@@ -424,7 +424,29 @@ def collect_reddit(subreddits: list[str], min_upvotes: int, max_per_sub: int) ->
 
 # ── RSS ───────────────────────────────────────────────────────────────
 
-def collect_rss(feeds: list[tuple[str, str]], max_per_feed: int) -> list[Item]:
+def collect_rss(feeds: list[tuple[str, str]], max_per_feed: int, hours_back: int = CUTOFF_HOURS) -> list[Item]:
+    """RSS / Atom フィードから記事を収集。
+    hours_back より古い記事は skip（フィードに古い記事が居座り続ける問題対策）。
+    pubDate / published / updated が解析できない記事は安全側に倒して採用する。"""
+    from email.utils import parsedate_to_datetime
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+
+    def _within_cutoff(rfc_or_iso: str) -> bool:
+        """文字列を datetime に解析して cutoff 以降かを判定。失敗したら True (採用)。"""
+        if not rfc_or_iso:
+            return True
+        try:
+            # ISO 8601 (Atom) か RFC 822 (RSS) かを試す
+            try:
+                dt = datetime.fromisoformat(rfc_or_iso.replace("Z", "+00:00"))
+            except ValueError:
+                dt = parsedate_to_datetime(rfc_or_iso)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt >= cutoff_dt
+        except Exception:
+            return True
+
     items: list[Item] = []
     for feed_name, feed_url in feeds:
         raw = _get(feed_url)
@@ -436,6 +458,7 @@ def collect_rss(feeds: list[tuple[str, str]], max_per_feed: int) -> list[Item]:
             continue
 
         count = 0
+        skipped_old = 0
         # RSS 2.0
         for item in root.findall(".//item"):
             if count >= max_per_feed:
@@ -449,10 +472,12 @@ def collect_rss(feeds: list[tuple[str, str]], max_per_feed: int) -> list[Item]:
             rss_dt = ""
             if pub_el is not None and pub_el.text:
                 try:
-                    from email.utils import parsedate_to_datetime
                     rss_dt = parsedate_to_datetime(pub_el.text).strftime("%Y-%m-%dT%H:%M:%SZ")
                 except Exception:
                     pass
+            if not _within_cutoff(rss_dt):
+                skipped_old += 1
+                continue
             items.append(Item(
                 source="rss",
                 title=title_el.text.strip(),
@@ -462,7 +487,8 @@ def collect_rss(feeds: list[tuple[str, str]], max_per_feed: int) -> list[Item]:
                 created_at=rss_dt,
             ))
             count += 1
-        if count:
+        if count or skipped_old:
+            # RSS 2.0 でフィードがあった（採用 or skip）→ Atom 解析はスキップ
             continue
 
         # Atom
@@ -481,6 +507,8 @@ def collect_rss(feeds: list[tuple[str, str]], max_per_feed: int) -> list[Item]:
                     atom_dt = pub_el.text.rstrip("Z").split("+")[0] + "Z"
                 except Exception:
                     pass
+            if not _within_cutoff(atom_dt):
+                continue
             items.append(Item(
                 source="rss",
                 title=(title_el.text or "").strip(),
