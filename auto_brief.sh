@@ -48,16 +48,14 @@ log "ニュース収集開始..."
   python "$DATA_DIR/collect_news.py" 2>&1 | tee -a "$LOG_FILE"
 log "収集完了"
 
-# ── Step 2: 英語記事を翻訳 ────────────────────────────────────────────
-log "翻訳開始..."
-(cd "$LOCUS_PRIVATE_DIR" && \
-  "$CLAUDE" --print "/news-translate" --dangerously-skip-permissions) 2>&1 | tee -a "$LOG_FILE"
-log "翻訳完了"
+# ── Step 2: 英語記事を翻訳（collect_news.py が既に Google Translate で実施済み）──
+# /news-translate スキルは行方不明のため撤去。translate は collect_news.py 内で完結。
 
-# ── Step 3: Claude Code でダイジェスト生成 ────────────────────────────
+# ── Step 3: ダイジェスト生成 (locus-private/scripts/process/digest.py) ─────────
 log "ダイジェスト生成開始..."
-(cd "$LOCUS_PRIVATE_DIR" && \
-  "$CLAUDE" --print "/news silent" --dangerously-skip-permissions) 2>&1 | tee -a "$LOG_FILE"
+"$UV" run --no-sync \
+  --directory "$SCRIPT_DIR" \
+  python "$LOCUS_PRIVATE_DIR/scripts/process/digest.py" 2>&1 | tee -a "$LOG_FILE"
 log "ダイジェスト生成完了"
 
 # ── Step 4: 件数取得 + macOS 通知 ─────────────────────────────────────
