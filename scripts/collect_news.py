@@ -765,6 +765,8 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="保存せず stdout に出力")
     parser.add_argument("--force", action="store_true", help="コスト上限を無視して実行")
     parser.add_argument("--render-only", action="store_true", help="news-latest.json から MD のみ再生成（収集スキップ）")
+    parser.add_argument("--no-dedup", action="store_true",
+        help="seen_urls の重複判定を無効化（手動テスト実行用、launchd の定時実行では使わない）")
     parser.add_argument(
         "--sources", nargs="+", choices=["x", "hn", "reddit", "rss"],
         help="収集するソースを指定（デフォルト: 全部）",
@@ -806,13 +808,17 @@ def main() -> None:
 
     state = _load_state()
     costs = _load_costs()
-    seen: set[str] = {
+    seen: set[str] = set() if args.no_dedup else {
         e["url"] if isinstance(e, dict) else e
         for e in state.get("seen_urls", [])
     }
+    if args.no_dedup:
+        print("  [no-dedup] seen_urls 重複判定を無効化（手動テスト実行用）")
     monthly_budget = getattr(cfg, "X_MONTHLY_BUDGET_USD", 0.0)
 
     def _dedup(items: list[Item]) -> list[Item]:
+        if args.no_dedup:
+            return list(items)
         result = []
         for it in items:
             if it.url and it.url not in seen:
@@ -891,14 +897,15 @@ def main() -> None:
     out_path = NEWS_DIR / f"{date}.md"
     out_path.write_text(content, encoding="utf-8")
 
-    # seen に追記（重複排除用）
+    # seen に追記（重複排除用）。--no-dedup 実行は state に残さない（次回の通常実行を汚染しない）
     all_items: list[Item] = x_items + hn_items + reddit_items + rss_items
-    now_ts = datetime.now(timezone.utc).isoformat()
-    state["seen_urls"] = state.get("seen_urls", []) + [
-        {"url": it.url, "ts": now_ts} for it in all_items if it.url
-    ]
-    hours_back = getattr(cfg, "X_HOURS_BACK", 24)
-    _save_state(state, hours_back=hours_back * 2)  # 収集窓の2倍を保持
+    if not args.no_dedup:
+        now_ts = datetime.now(timezone.utc).isoformat()
+        state["seen_urls"] = state.get("seen_urls", []) + [
+            {"url": it.url, "ts": now_ts} for it in all_items if it.url
+        ]
+        hours_back = getattr(cfg, "X_HOURS_BACK", 24)
+        _save_state(state, hours_back=hours_back * 2)  # 収集窓の2倍を保持
     _save_costs(costs)
 
     # 最新アイテムを JSON で保存（latest + 日時アーカイブ）
