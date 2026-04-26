@@ -195,11 +195,15 @@ def collect_x(
 
     # since_time: Unix タイムスタンプ（hours_back 時間前）
     since_ts = int((datetime.now(timezone.utc) - timedelta(hours=hours_back)).timestamp())
+    # `since:YYYY-MM-DD` クエリ演算子用の日付（Top 検索だと since_time URL param が
+    # 無視されるケースがあるため、クエリ文字列側にも日付フィルタを埋める）
+    since_date = (datetime.now(timezone.utc) - timedelta(hours=hours_back)).strftime("%Y-%m-%d")
 
-    def _build_filter(rt: int, lk: int, lang: str = "") -> str:
+    def _build_filter(rt: int, lk: int, lang: str = "", since_d: str = "") -> str:
         lk_op = f" min_faves:{lk}" if lk > 0 else ""
         lang_op = f" lang:{lang}" if lang else ""
-        return f"min_retweets:{rt}{lk_op} -is:retweet{lang_op}"
+        since_op = f" since:{since_d}" if since_d else ""
+        return f"min_retweets:{rt}{lk_op} -is:retweet{lang_op}{since_op}"
 
     # (クエリ文字列, client側RT閾値, client側likes閾値, ラベル) のリスト
     # サーバー側にも同じ閾値を埋め込むことで返却件数を削減
@@ -219,14 +223,14 @@ def collect_x(
                     negatives.add(neg)
         neg_str = (" " + " ".join(sorted(negatives))) if negatives else ""
         kw_base = f"({' OR '.join(positives)})" if len(positives) > 1 else positives[0]
-        kw_query = f"{kw_base}{neg_str} {_build_filter(min_rt, min_likes, lang='en')}"
+        kw_query = f"{kw_base}{neg_str} {_build_filter(min_rt, min_likes, lang='en', since_d=since_date)}"
         query_specs.append((kw_query, min_rt, min_likes, "en_kw"))
 
     # 英語アカウント
     if accounts:
         acc_or = " OR ".join(f"from:{acc}" for acc in accounts)
         query_specs.append((
-            f"({acc_or}) {_build_filter(min_rt, min_likes)}",
+            f"({acc_or}) {_build_filter(min_rt, min_likes, since_d=since_date)}",
             min_rt, min_likes, "en_acc",
         ))
 
@@ -234,20 +238,20 @@ def collect_x(
     if accounts_ja:
         acc_ja_or = " OR ".join(f"from:{acc}" for acc in accounts_ja)
         query_specs.append((
-            f"({acc_ja_or}) {_build_filter(min_rt_ja, min_likes_ja)}",
+            f"({acc_ja_or}) {_build_filter(min_rt_ja, min_likes_ja, since_d=since_date)}",
             min_rt_ja, min_likes_ja, "ja_acc",
         ))
 
     # 日本語キーワード v1（フォロー外アカウントのバズ発見用・lang:ja 固定）
     if keywords_ja:
         for kw_ja in keywords_ja:
-            q = f"{kw_ja} {_build_filter(min_rt_kw_ja, min_likes_kw_ja, lang='ja')}"
+            q = f"{kw_ja} {_build_filter(min_rt_kw_ja, min_likes_kw_ja, lang='ja', since_d=since_date)}"
             query_specs.append((q, min_rt_kw_ja, min_likes_kw_ja, "ja_kw"))
 
     # 日本語キーワード v2（改善クエリ・A/B テスト用）
     if keywords_ja_v2:
         for kw_ja in keywords_ja_v2:
-            q = f"{kw_ja} {_build_filter(min_rt_kw_ja, min_likes_kw_ja, lang='ja')}"
+            q = f"{kw_ja} {_build_filter(min_rt_kw_ja, min_likes_kw_ja, lang='ja', since_d=since_date)}"
             query_specs.append((q, min_rt_kw_ja, min_likes_kw_ja, "ja_kw_v2"))
 
     for query, q_min_rt, q_min_likes, qlabel in query_specs:
@@ -307,13 +311,14 @@ def collect_x(
             if not clean:
                 continue  # URL のみのツイートはスキップ
 
-            # 添付画像（最初の1枚）extended_entities が空なら entities を fallback
+            # 添付メディア（photo / video / animated_gif の thumbnail を画像として扱う）
+            # extended_entities が空なら entities を fallback
             media_list = (
                 t.get("extended_entities", {}).get("media", [])
                 or t.get("entities", {}).get("media", [])
             )
             image_url = ""
-            if media_list and media_list[0].get("type") == "photo":
+            if media_list and media_list[0].get("type") in ("photo", "video", "animated_gif"):
                 image_url = media_list[0].get("media_url_https", "")
 
             # 日本語訳（日本語アカウントのツイートは翻訳不要）
