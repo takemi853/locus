@@ -305,9 +305,9 @@ def collect_x(
             if not article_url or "t.co" in article_url:
                 article_url = f"https://x.com/{author}/status/{tid}"
 
+            # URL は除去（記事 URL は別途扱う）が、改行と全文は保持。
+            # 表示側 (news_app の white-space: pre-wrap / _render_x_item の truncate) で扱う
             clean = re.sub(r"https?://\S+", "", text).strip()
-            clean = re.sub(r"\s*\n+\s*", " / ", clean)
-            clean = (clean[:120] + "…") if len(clean) > 120 else clean
             if not clean:
                 continue  # URL のみのツイートはスキップ
 
@@ -562,8 +562,11 @@ _X_SECTIONS: list[tuple[str, str, int]] = [
 
 
 def _render_x_item(it: Item) -> list[str]:
-    """ツイート1件をコールアウトカード形式でレンダリング。"""
-    snippet = it.title[:100] + ("…" if len(it.title) > 100 else "")
+    """ツイート1件をコールアウトカード形式でレンダリング。
+    Markdown のリンク本文は単一行であるべきなので、ここでだけ改行を / に縮める。
+    元データ（news-latest.json の title）は news_app 表示用に改行保持済み。"""
+    snippet_src = re.sub(r"\s*\n+\s*", " / ", it.title)
+    snippet = snippet_src[:100] + ("…" if len(snippet_src) > 100 else "")
     parts = [f"♥{_fmt_num(it.likes)}", f"RT {_fmt_num(it.retweets)}"]
     if it.replies >= 100:
         parts.append(f"💬{_fmt_num(it.replies)}")
