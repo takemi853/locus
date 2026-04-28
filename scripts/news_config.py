@@ -34,6 +34,7 @@ X_ACCOUNTS: list[str] = [
     # Anthropic / Claude Code 一次情報
     "AnthropicAI",
     "alexalbert__",
+    "claudeai",        # Anthropic 関連公式 (feedback like 13)
     # AI 研究・実装の論評（高シグナル）
     "karpathy",
     "simonw",          # LLM blog (Simon Willison)
@@ -41,6 +42,7 @@ X_ACCOUNTS: list[str] = [
     "omarsar0",        # DAIR.AI ニュースレター
     "dwarkesh_sp",     # Dwarkesh Podcast
     "hardmaru",        # David Ha
+    "trq212",          # Claude Code 系開発者 (feedback like 8)
     # 推薦・実装系
     "eugeneyan",       # eugeneyan blog（推薦/ML systems）
     "jxnl",            # Jason Liu (Instructor / DSPy)
@@ -51,14 +53,16 @@ X_ACCOUNTS: list[str] = [
 
 # ── 日本語アカウント（lang フィルタなし、from: で取得）──
 # 選定基準: AI / LLM / ML / 推薦 / Claude Code 関連で日本語の一次論評を出す人
+# karaage0703 は feedback で like:1 dislike:4 のため 2026-04-28 に削除
 X_ACCOUNTS_JA: list[str] = [
     "hillbig",         # Daisuke Okanohara (PFN)
     "npaka123",        # npaka — LLM tips/解説
-    "karaage0703",     # karaage — ML / Maker
     "smly",            # Kaggler
     "shi3z",           # 清水亮
     "masuidrive",      # 増井雄一郎
     "mamoruk",         # 持橋大地（自然言語処理）
+    "masahirochaen",   # AI ツール紹介 (feedback like 16)
+    "7_eito_7",        # AI 関連 (feedback like 16)
 ]
 
 # ── 日本語キーワード（各キーワードが1クエリ。lang:ja は自動付与）──

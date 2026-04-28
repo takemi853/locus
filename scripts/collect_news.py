@@ -147,6 +147,33 @@ def _check_budget(costs: dict, monthly_budget: float) -> bool:
 
 # ── 翻訳 ─────────────────────────────────────────────────────────────
 
+# ── プロモ / スパム検出 ────────────────────────────────────────────────
+# X 検索で混入しがちな自己プロモ / 商業煽り tweet を弾くためのパターン集。
+# 過剰検出を避けるため、固有テンプレ語や強い煽り語のみに絞る。
+_PROMO_PATTERNS = [
+    # 「【保存版】」「【完全版】」「【神AI】」「【保存推奨】」等のテンプレ
+    r"【\s*(保存版|完全版|超有料級|保存推奨|保存必須|神AI|神プロンプト|神ツール|神アプリ|限定公開|無料公開|永久保存)\s*】",
+    # 「リプで配布」「DMで」「コメントで」「いいねした方に」型
+    r"(リプ|DM|コメント)で(配布|送り|プレゼント|お渡し)",
+    r"いいね(した|くれた)(方|人)に",
+    # 「無料配布」「無料プレゼント」「無料公開」型 — 商業ハイプ語
+    r"無料(配布|プレゼント|公開中)",
+    # 「神プロンプト」「神ツール」「神AI」が括弧無しで本文に
+    r"神(プロンプト|ツール|アプリ|AI)(集|公開)",
+    # 「X倍に」「X日でX万円」型の煽り (3倍以上)
+    r"\d{2,}倍に",
+    r"\d+万円(稼|もらえ|貰え|稼げ)",
+    # 「フォロワー」「フォロー」だけで配布タイプ
+    r"フォロー(してくれた|していただいた).{0,20}(配布|送)",
+]
+_PROMO_RE = re.compile("|".join(_PROMO_PATTERNS))
+
+
+def _is_promo_spam(text: str) -> bool:
+    """X 検索で拾った tweet 本文が自己プロモ / 商業煽り型なら True。"""
+    return bool(_PROMO_RE.search(text))
+
+
 def _translate_ja(text: str) -> str:
     """Google Translate 非公式 API で英語→日本語に翻訳する（キー不要）。"""
     if not text:
@@ -310,6 +337,8 @@ def collect_x(
             clean = re.sub(r"https?://\S+", "", text).strip()
             if not clean:
                 continue  # URL のみのツイートはスキップ
+            if _is_promo_spam(clean):
+                continue  # 自己プロモ / 商業煽り tweet は除外
 
             # 添付メディア（photo / video / animated_gif の thumbnail を画像として扱う）
             # extended_entities が空なら entities を fallback
