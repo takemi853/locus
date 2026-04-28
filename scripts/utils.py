@@ -97,10 +97,11 @@ def list_wiki_articles() -> list[Path]:
 
 
 def list_raw_files() -> list[Path]:
-    """List all daily log files."""
+    """List all daily log files (excludes index.md and other non-log files)."""
     if not DAILY_DIR.exists():
         return []
-    return sorted(DAILY_DIR.glob("*.md"))
+    skip = {"index.md", "README.md"}
+    return sorted(p for p in DAILY_DIR.glob("*.md") if p.name not in skip)
 
 
 # ── Index helpers ─────────────────────────────────────────────────────

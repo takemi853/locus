@@ -342,6 +342,11 @@ def main():
     state["last_lint"] = now_iso()
     save_state(state)
 
+    # Summary
+    errors = sum(1 for i in all_issues if i["severity"] == "error")
+    warnings = sum(1 for i in all_issues if i["severity"] == "warning")
+    suggestions = sum(1 for i in all_issues if i["severity"] == "suggestion")
+
     # log.md に記録
     report_rel = f"reports/lint-{today_iso()}"
     log_entry = (
@@ -352,10 +357,6 @@ def main():
     with LOG_FILE.open("a", encoding="utf-8") as f:
         f.write(log_entry)
 
-    # Summary
-    errors = sum(1 for i in all_issues if i["severity"] == "error")
-    warnings = sum(1 for i in all_issues if i["severity"] == "warning")
-    suggestions = sum(1 for i in all_issues if i["severity"] == "suggestion")
     print(f"\nResults: {errors} errors, {warnings} warnings, {suggestions} suggestions")
 
     if errors > 0:
