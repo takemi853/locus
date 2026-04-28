@@ -427,7 +427,7 @@ def collect_hn(min_points: int, max_items: int) -> list[Item]:
         url: str = data.get("url") or f"https://news.ycombinator.com/item?id={sid}"
         title: str = data.get("title", "")
         author: str = data.get("by", "")
-        hn_dt = datetime.utcfromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ") if ts else ""
+        hn_dt = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if ts else ""
         items.append(Item(source="hn", title=title, url=url, metric=f"{score:,}pts", author=author, created_at=hn_dt))
 
     return items
@@ -459,7 +459,7 @@ def collect_reddit(subreddits: list[str], min_upvotes: int, max_per_sub: int) ->
             # スコアを K 表記に変換
             metric_str = f"{score/1000:.1f}K↑" if score >= 1000 else f"{score}↑"
             reddit_ts = d.get("created_utc", 0)
-            reddit_dt = datetime.utcfromtimestamp(reddit_ts).strftime("%Y-%m-%dT%H:%M:%SZ") if reddit_ts else ""
+            reddit_dt = datetime.fromtimestamp(reddit_ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if reddit_ts else ""
             items.append(Item(
                 source="reddit",
                 title=title,
@@ -968,7 +968,9 @@ def main() -> None:
     scripts_dir = Path(__file__).resolve().parent
     latest_file = scripts_dir / "news-latest.json"
     latest_file.write_text(payload, encoding="utf-8")
-    archive_file = scripts_dir / f"news-{archive_key}.json"
+    archive_dir = scripts_dir / "cache" / "news-archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archive_file = archive_dir / f"news-{archive_key}.json"
     archive_file.write_text(payload, encoding="utf-8")
 
     total = len(all_items)

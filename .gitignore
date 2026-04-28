@@ -13,13 +13,13 @@ scripts/flush.log
 scripts/compile.log
 scripts/api.log
 scripts/weekly.log
+scripts/monthly.log
 scripts/flush_stderr.log
 scripts/cc_feed_import_state.json
 scripts/news-state.json
 scripts/news-costs.json
 scripts/news-preferences.json
 scripts/news-latest.json
-scripts/news-[0-9]*.json
 scripts/news-feedback.json
 scripts/news-feedback-log.md
 scripts/news-digest.json
@@ -29,6 +29,9 @@ scripts/claude-tips.json
 scripts/news-bot-state.json
 scripts/session-flush-*
 scripts/flush-context-*
+
+# Runtime cache (news archive snapshots, api logs, etc.)
+scripts/cache/
 
 # データはデータリポジトリ（locus-private 等）で管理するためシステムリポジトリからは除外
 daily/

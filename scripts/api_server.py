@@ -29,8 +29,10 @@ from config import DAILY_DIR
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
+_API_LOG_DIR = SCRIPTS_DIR / "cache" / "logs"
+_API_LOG_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
-    filename=str(SCRIPTS_DIR / "api.log"),
+    filename=str(_API_LOG_DIR / "api.log"),
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
