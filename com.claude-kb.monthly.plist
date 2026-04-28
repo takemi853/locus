@@ -6,15 +6,24 @@
     <key>Label</key>
     <string>com.claude-kb.monthly</string>
 
+    <!--
+      Note: /Users/takemi/ is a placeholder; install-plists.sh sed-replaces
+      it with $HOME at install time. uv is resolved via PATH (set below).
+    -->
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/takemi/.local/bin/uv</string>
-        <string>run</string>
-        <string>--directory</string>
-        <string>/Users/takemi/Projects/app/claude-memory-compiler</string>
-        <string>python</string>
-        <string>/Users/takemi/Projects/app/claude-memory-compiler/scripts/monthly.py</string>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>cd /Users/takemi/Projects/locus-project/locus &amp;&amp; exec uv run --no-sync python scripts/monthly.py</string>
     </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/takemi/.local/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/takemi</string>
+    </dict>
 
     <!-- 毎月28〜31日の21:00に実行。monthly.pyが月末かどうかを判定して実際には月末のみ生成する。 -->
     <key>StartCalendarInterval</key>
