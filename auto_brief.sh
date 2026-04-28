@@ -30,10 +30,15 @@ notify_fail() {
 
 log "=== auto_brief.sh 開始 ==="
 
-# ── Step 0: 最新コードを fast-forward pull（mini 運用の整合性確保）─────
+# ── Step 0: 最新コードを pull（laptop ↔ mini 双方向で dirty work tree 想定）─
+# --rebase --autostash で:
+#   • 通常の追従 → linear rebase
+#   • 自動生成ファイルの未コミット差分 → autostash で逃す
+#   • 競合 → rebase 自体がクリーンに abort
 log "git pull 開始..."
 for repo in "$SCRIPT_DIR" "$LOCUS_PRIVATE_DIR"; do
-  if ! git -C "$repo" pull --ff-only 2>&1 | tee -a "$LOG_FILE"; then
+  if ! git -C "$repo" pull --rebase --autostash 2>&1 | tee -a "$LOG_FILE"; then
+    git -C "$repo" rebase --abort 2>/dev/null || true
     log "[abort] $repo の git pull に失敗。手動解決が必要です"
     notify_fail "$(basename "$repo") pull failed"
     exit 1

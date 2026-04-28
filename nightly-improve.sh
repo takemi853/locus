@@ -32,23 +32,54 @@ notify() {
 
 log "=== nightly-improve.sh 開始 ==="
 
-# ── Step 0: 両リポ pull ──────────────────────────────────────────────
+# ── Step 0: 両リポ pull (laptop ↔ mini 双方向対応で rebase + autostash) ────
 log "git pull..."
 for repo in "$COMPILER_DIR" "$LOCUS_PRIVATE_DIR"; do
-  if ! git -C "$repo" pull --ff-only 2>&1 | tee -a "$LOG_FILE"; then
+  if ! git -C "$repo" pull --rebase --autostash 2>&1 | tee -a "$LOG_FILE"; then
+    git -C "$repo" rebase --abort 2>/dev/null || true
     log "[abort] $repo の pull 失敗"
     notify "$(basename "$repo") pull failed" "⚠️ nightly-improve" "Basso"
     exit 1
   fi
 done
 
+# ── Step 0.5: 最新 lint レポートを生成（/improve への入力にする）──────
+log "lint --structural-only..."
+LINT_REPORT=""
+if cd "$COMPILER_DIR" && uv run --no-sync python scripts/lint.py --structural-only 2>&1 | tee -a "$LOG_FILE"; then
+  TODAY=$(date +%Y-%m-%d)
+  LINT_FILE="$LOCUS_PRIVATE_DIR/reports/lint-$TODAY.md"
+  if [ -f "$LINT_FILE" ]; then
+    LINT_REPORT=$(cat "$LINT_FILE")
+    log "lint レポート読み込み済み ($(wc -l < "$LINT_FILE") 行)"
+  fi
+fi
+
 # ── Step 1: /improve 実行（最大 1 時間で wall-clock 強制終了）────────
 log "/improve 実行 (max 60min)..."
 TIMEOUT_BIN="${TIMEOUT_BIN:-$(command -v gtimeout || command -v timeout)}"
+
+# /improve に lint レポートを文脈として注入。Claude には:
+#   - 重大度 error から優先的に対処
+#   - 1晩あたり最大 3 件まで PR 化（小さく刻む）
+#   - 機械的に修正できるものは scripts/lint_fix.py を活用
+# を指示する。
+IMPROVE_PROMPT="/improve
+
+## 今夜の lint レポート（ヘルスチェック結果）
+
+これを参考に、修正可能な小さい issue を 1〜3 件選んで PR を立ててください。
+重要度 error から優先。機械的に直せるリンク・バックリンク系は scripts/lint_fix.py が
+処理できるのでそれを実行・コミットするだけで OK な場合もあります。
+
+\`\`\`
+${LINT_REPORT:-(lint 実行に失敗 — レポート無しで /improve のデフォルト動作で進めてください)}
+\`\`\`"
+
 PR_OUTPUT=$(
   cd "$LOCUS_PRIVATE_DIR" && \
   ${TIMEOUT_BIN:+$TIMEOUT_BIN 3600} \
-    "$CLAUDE" --print "/improve" --dangerously-skip-permissions 2>&1 | tee -a "$LOG_FILE"
+    "$CLAUDE" --print "$IMPROVE_PROMPT" --dangerously-skip-permissions 2>&1 | tee -a "$LOG_FILE"
 ) || log "[warn] claude が exit 非0 (timeout? error?)"
 
 # ── Step 2: PR が立ったかチェック ────────────────────────────────────

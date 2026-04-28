@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.locus.sync</string>
+
+    <!--
+      Locus auto-sync — push locus-private to GitHub so the laptop can read.
+      Note: /Users/takemi/ is a placeholder; install-plists.sh sed-replaces
+      it with $HOME at install time.
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>cd /Users/takemi/Projects/locus-project/locus &amp;&amp; exec uv run --no-sync python scripts/sync.py</string>
+    </array>
+
+    <!-- 毎日 03:30 (JST) に実行（nightly-improve の30分後 = improve結果も取り込める） -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>3</integer>
+        <key>Minute</key><integer>30</integer>
+    </dict>
+
+    <!-- ログイン直後にも一度走らせて取り残しを掃除 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/takemi/.local/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/takemi</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/locus-sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/locus-sync-error.log</string>
+</dict>
+</plist>
