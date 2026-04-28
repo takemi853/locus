@@ -147,6 +147,24 @@ def _check_budget(costs: dict, monthly_budget: float) -> bool:
 
 # ── 翻訳 ─────────────────────────────────────────────────────────────
 
+# ── X 検索クエリに埋め込む否定 phrase ─────────────────────────────────
+# Twitter 検索構文 `-"phrase"` で、API 返却前に literal 一致するプロモ tweet を
+# 弾く。クライアント側の _is_promo_spam で再フィルタするより早く、API 課金も削減。
+# 正規表現 (\d+倍 / \d+万円稼) 系は Twitter 検索が非対応のため _PROMO_PATTERNS に残す。
+_X_NEGATIVE_PHRASES = [
+    # 【】テンプレ
+    "【保存版】", "【完全版】", "【保存推奨】", "【保存必須】",
+    "【超有料級】", "【限定公開】", "【無料公開】", "【永久保存】",
+    "【神AI】", "【神プロンプト】", "【神ツール】", "【神アプリ】",
+    # 「○○で配布」型
+    "リプで配布", "DMで配布", "コメントで配布",
+    # 商業ハイプ語
+    "無料配布", "無料プレゼント", "無料公開中",
+    "神プロンプト集", "神ツール集",
+]
+_X_NEGATIVE_QUERY_FRAGMENT = " " + " ".join(f'-"{p}"' for p in _X_NEGATIVE_PHRASES)
+
+
 # ── プロモ / スパム検出 ────────────────────────────────────────────────
 # X 検索で混入しがちな自己プロモ / 商業煽り tweet を弾くためのパターン集。
 # 過剰検出を避けるため、固有テンプレ語や強い煽り語のみに絞る。
@@ -230,7 +248,8 @@ def collect_x(
         lk_op = f" min_faves:{lk}" if lk > 0 else ""
         lang_op = f" lang:{lang}" if lang else ""
         since_op = f" since:{since_d}" if since_d else ""
-        return f"min_retweets:{rt}{lk_op} -is:retweet{lang_op}{since_op}"
+        # 否定 phrase は API 返却前に弾く（API 課金削減）
+        return f"min_retweets:{rt}{lk_op} -is:retweet{lang_op}{since_op}{_X_NEGATIVE_QUERY_FRAGMENT}"
 
     # (クエリ文字列, client側RT閾値, client側likes閾値, ラベル) のリスト
     # サーバー側にも同じ閾値を埋め込むことで返却件数を削減
