@@ -1,8 +1,12 @@
 #!/bin/bash
-# news_feedback.sh — 日次フィードバック分析・news_config.py 自動改善
+# news_feedback.sh — 日次フィードバック分析
 #
 # 毎日 22:00 に LaunchAgent から呼ばれる。
-# /news feedback スキルで分析 → X_ACCOUNTS_JA 追加 + ログ保存
+# locus-private/scripts/process/feedback.py が news-feedback.json を集計し、
+# news-feedback-log.md に追記する。
+#
+# 旧設計は /news feedback skill 呼び出しだったが skill 不在で 2 日連続 silent
+# fail していたため Python script に置換 (digest.py と同じ修正パターン)。
 
 set -euo pipefail
 
@@ -11,9 +15,9 @@ if [ -f ~/.zshenv ]; then
     source ~/.zshenv 2>/dev/null || true
 fi
 
-CLAUDE="${CLAUDE_BIN:-$(command -v claude || echo $HOME/.local/bin/claude)}"
 COMPILER_DIR="${COMPILER_DIR:-$HOME/Projects/locus-project/locus}"
 LOCUS_PRIVATE_DIR="${LOCUS_PRIVATE_DIR:-$HOME/Projects/locus-project/locus-private}"
+UV="${UV_BIN:-$(command -v uv || echo $HOME/.local/bin/uv)}"
 LOG_FILE="/tmp/locus-news-feedback.log"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
@@ -24,7 +28,7 @@ notify_fail() {
 
 log "=== news_feedback.sh 開始 ==="
 
-# 最新コードを fast-forward pull（mini 運用の整合性確保）
+# 最新コードを fast-forward pull
 log "git pull 開始..."
 for repo in "$COMPILER_DIR" "$LOCUS_PRIVATE_DIR"; do
   if ! git -C "$repo" pull --ff-only 2>&1 | tee -a "$LOG_FILE"; then
@@ -35,7 +39,10 @@ for repo in "$COMPILER_DIR" "$LOCUS_PRIVATE_DIR"; do
 done
 log "git pull 完了"
 
-(cd "$LOCUS_PRIVATE_DIR" && \
-  "$CLAUDE" --print "/news feedback" --dangerously-skip-permissions) 2>&1 | tee -a "$LOG_FILE"
+log "feedback 分析開始..."
+"$UV" run --no-sync \
+  --directory "$COMPILER_DIR" \
+  python "$LOCUS_PRIVATE_DIR/scripts/process/feedback.py" 2>&1 | tee -a "$LOG_FILE"
+log "feedback 分析完了"
 
 log "=== 完了 ==="
