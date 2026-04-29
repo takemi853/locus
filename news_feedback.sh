@@ -1,12 +1,14 @@
 #!/bin/bash
-# news_feedback.sh — 日次フィードバック分析
+# news_feedback.sh — 日次フィードバック分析 + テックワード自動収集
 #
 # 毎日 22:00 に LaunchAgent から呼ばれる。
-# locus-private/scripts/process/feedback.py が news-feedback.json を集計し、
-# news-feedback-log.md に追記する。
+# 1. feedback.py が news-feedback.json を集計し news-feedback-log.md に追記
+# 2. term_freq.py --add-new --min-freq 3 が直近 24h の X tweet からテックワードを
+#    抽出し、未登録のものを inbox/interests/ に stub 追加
+#    (news_app の background enrich が後で interest.py で enrich)
 #
-# 旧設計は /news feedback skill 呼び出しだったが skill 不在で 2 日連続 silent
-# fail していたため Python script に置換 (digest.py と同じ修正パターン)。
+# 旧設計は /news feedback skill 呼び出しだったが skill 不在で silent fail して
+# いたため Python script に置換 (digest.py と同じ修正パターン)。
 
 set -euo pipefail
 
@@ -44,5 +46,16 @@ log "feedback 分析開始..."
   --directory "$COMPILER_DIR" \
   python "$LOCUS_PRIVATE_DIR/scripts/process/feedback.py" 2>&1 | tee -a "$LOG_FILE"
 log "feedback 分析完了"
+
+# テックワード自動収集 (24h X tweet → whitelist 集計 → 未登録分を stub 化)
+# --min-freq 3 = 同 batch 内で 3 回以上言及されたテックワードのみ追加
+# 既存登録は重複検出で自動 skip。stub は inbox/interests/<slug>.md に書かれ、
+# news_app の background polling で interest.py 経由 enrich される。
+log "テックワード自動収集開始..."
+"$UV" run --no-sync \
+  --directory "$COMPILER_DIR" \
+  python "$LOCUS_PRIVATE_DIR/scripts/analyze/term_freq.py" \
+    --add-new --min-freq 3 --hours 24 2>&1 | tee -a "$LOG_FILE"
+log "テックワード自動収集完了"
 
 log "=== 完了 ==="
