@@ -52,3 +52,6 @@ Thumbs.db
 
 .obsidian/
 .serena/
+
+# news_bot 出力ファイル
+scripts/news-2*.json
