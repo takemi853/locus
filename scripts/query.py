@@ -92,7 +92,6 @@ consulting the knowledge base below.
     # log.md に記録（file-back モードは LLM 側が書くのでここでは non-file-back のみ）
     if not file_back:
         log_entry = f"\n## [{now_iso()}] query | {question[:60]}\n- Question: {question}\n"
-        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(log_entry)
 

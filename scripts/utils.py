@@ -53,8 +53,14 @@ def slugify(text: str) -> str:
 # ── Wikilink helpers ──────────────────────────────────────────────────
 
 def extract_wikilinks(content: str) -> list[str]:
-    """Extract all [[wikilinks]] from markdown content."""
-    return re.findall(r"\[\[([^\]]+)\]\]", content)
+    """Extract [[wikilink]] targets from markdown content, stripping pipe aliases and anchors."""
+    raw = re.findall(r"\[\[([^\]]+)\]\]", content)
+    return [target for r in raw if (target := r.split("|")[0].split("#")[0].strip())]
+
+
+def path_to_slug(rel: Path) -> str:
+    """Convert a relative path to a wiki slug (no .md extension, forward slashes)."""
+    return str(rel.with_suffix("")).replace("\\", "/")
 
 
 def wiki_article_exists(link: str) -> bool:

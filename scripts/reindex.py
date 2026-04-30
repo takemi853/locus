@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import DAILY_DIR, DRAFT_DIR, KNOWLEDGE_DIR, PROJECTS_DIR, WIKI_DIR, today_iso
+from utils import extract_wikilinks, path_to_slug
 
 DRAFT_WIKI_DIR = DRAFT_DIR / "wiki"
 
@@ -215,9 +216,6 @@ def _inbox_index(articles: list[tuple[str, str, str, list[str]]]) -> str:
 
 # ── Co-link discovery（Scrapbox 式の暗黙的関連検出）────────────────────
 
-_WIKILINK_RE = re.compile(r"\[\[([^\]|#]+?)(?:\|[^\]]+)?\]\]")
-
-
 def _collect_article_links(search_dirs: list[Path]) -> dict[str, set[str]]:
     """各記事が持つ wikilink のセットを返す。daily/ リンクは除外。"""
     result: dict[str, set[str]] = {}
@@ -232,13 +230,11 @@ def _collect_article_links(search_dirs: list[Path]) -> dict[str, set[str]]:
             except OSError:
                 continue
             links = {
-                m.group(1).strip()
-                for m in _WIKILINK_RE.finditer(content)
-                if not m.group(1).startswith("daily/")
+                link for link in extract_wikilinks(content)
+                if not link.startswith("daily/")
             }
             if links:
-                rel = str(f.relative_to(KNOWLEDGE_DIR)).replace(".md", "").replace("\\", "/")
-                result[rel] = links
+                result[path_to_slug(f.relative_to(KNOWLEDGE_DIR))] = links
     return result
 
 
@@ -250,9 +246,9 @@ def _compute_colinks(
     pairs = []
     for i, a in enumerate(slugs):
         for b in slugs[i + 1:]:
-            shared = sorted(article_links[a] & article_links[b])
-            if len(shared) >= min_shared:
-                pairs.append((a, b, len(shared), shared))
+            intersection = article_links[a] & article_links[b]
+            if len(intersection) >= min_shared:
+                pairs.append((a, b, len(intersection), sorted(intersection)))
     return sorted(pairs, key=lambda x: x[2], reverse=True)[:top_n]
 
 
@@ -316,7 +312,6 @@ def run() -> None:
     idx_path.write_text(_daily_index(daily_rows), encoding="utf-8")
     print(f"  daily/index.md  ({len(daily_rows)} days)")
 
-    # projects/<slug>.md
     for project, sessions in sorted(all_sessions.items()):
         slug = re.sub(r"[^\w-]", "-", project.lower()).strip("-")
         slug = re.sub(r"-+", "-", slug)
@@ -324,7 +319,6 @@ def run() -> None:
         path.write_text(_project_page(project, sessions), encoding="utf-8")
         print(f"  projects/{slug}.md  ({len(sessions)} sessions)")
 
-    # inbox/wiki/index.md
     inbox_articles: list[tuple[str, str, str, list[str]]] = []
     if DRAFT_WIKI_DIR.is_dir():
         for f in DRAFT_WIKI_DIR.glob("*.md"):

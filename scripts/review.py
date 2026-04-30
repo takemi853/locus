@@ -23,7 +23,7 @@ from config import (
     DRAFT_DIR,
     now_iso,
 )
-from utils import load_state, save_state, read_wiki_index
+from utils import load_state, path_to_slug, save_state, read_wiki_index
 
 # ターミナルカラー
 GREEN = "\033[92m"
@@ -154,7 +154,7 @@ def _update_index(article_path: Path) -> None:
     """knowledge/index.md に記事のエントリを追加または更新する。"""
     index_path = KNOWLEDGE_DIR / "index.md"
     rel = article_path.relative_to(KNOWLEDGE_DIR)
-    slug = str(rel).replace(".md", "")
+    slug = path_to_slug(rel)
     today = now_iso()[:10]
 
     # タイトルとサマリーを記事から抽出

@@ -236,9 +236,11 @@ def collect_new_errors(since_ts: float) -> list[str]:
                     m = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
                     if m:
                         try:
-                            ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(
-                                tzinfo=timezone.utc
-                            ).timestamp()
+                            # logging モジュールは LOCAL time で書き込むので naive datetime を
+                            # そのまま timestamp() する（Python は naive を local と解釈する）。
+                            # 旧コードは UTC を付与していたため、JST 環境で過去のエラーが未来扱いになり
+                            # self-heal が古い ERROR 行に何度も誤反応していた。
+                            ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").timestamp()
                         except ValueError:
                             ts = 0.0
                         in_recent_error = ts > since_ts and (
