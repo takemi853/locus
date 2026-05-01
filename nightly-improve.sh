@@ -22,6 +22,7 @@ fi
 CLAUDE="${CLAUDE_BIN:-$(command -v claude || echo $HOME/.local/bin/claude)}"
 COMPILER_DIR="${COMPILER_DIR:-$HOME/Projects/locus-project/locus}"
 LOCUS_PRIVATE_DIR="${LOCUS_PRIVATE_DIR:-$HOME/Projects/locus-project/locus-private}"
+LUMI_DIR="${LUMI_DIR:-$HOME/Projects/agent/lumi}"
 LOG_FILE="/tmp/locus-nightly-improve.log"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
@@ -59,8 +60,51 @@ fi
 log "/improve 実行 (max 60min)..."
 TIMEOUT_BIN="${TIMEOUT_BIN:-$(command -v gtimeout || command -v timeout)}"
 
-# /improve に lint レポートを文脈として注入。Claude には:
+# ── Step 0.6: Lumi session digest を生成（直近 24h の chat session を md 化）────
+if [ -d "$LUMI_DIR" ] && [ -f "$LUMI_DIR/voice/session_digest.py" ]; then
+  log "Lumi session_digest 実行..."
+  if ! (cd "$LUMI_DIR" && uv run --no-sync python -m voice.session_digest --hours 24 2>&1 | tee -a "$LOG_FILE"); then
+    log "[warn] session_digest 失敗 — sessions report 無しで進行"
+  fi
+else
+  log "[skip] LUMI_DIR が見つからない: $LUMI_DIR"
+fi
+
+# ── Step 0.7: Lumi セッション digest を集約（過去 24h 分）────────────
+# Lumi 側で `voice/session_digest.py` が出力した markdown を、ここで
+# 連結して /improve への文脈として渡す。Lumi の chat session 単位の
+# 「決定 / 学び / 気になる / 積み残し」が Locus 改善の入力になる。
+LUMI_SESSIONS_REPORT=""
+LUMI_SESSIONS_DIR="$LOCUS_PRIVATE_DIR/knowledge/inbox/lumi-sessions"
+if [ -d "$LUMI_SESSIONS_DIR" ]; then
+  TODAY=$(date +%Y-%m-%d)
+  YESTERDAY=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d 'yesterday' +%Y-%m-%d)
+  TMP_LUMI_REPORT=$(mktemp)
+  for dir in "$LUMI_SESSIONS_DIR/$TODAY" "$LUMI_SESSIONS_DIR/$YESTERDAY"; do
+    if [ -d "$dir" ]; then
+      for f in "$dir"/*.md; do
+        [ -f "$f" ] || continue
+        echo "### $(basename "$dir")/$(basename "$f")" >> "$TMP_LUMI_REPORT"
+        # frontmatter を飛ばして本文だけ
+        sed -n '/^---$/,/^---$/!p' "$f" | head -100 >> "$TMP_LUMI_REPORT"
+        echo "" >> "$TMP_LUMI_REPORT"
+      done
+    fi
+  done
+  if [ -s "$TMP_LUMI_REPORT" ]; then
+    # 巨大化防止: 最大 400 行
+    LUMI_SESSIONS_REPORT=$(head -400 "$TMP_LUMI_REPORT")
+    log "Lumi sessions report: $(wc -l < "$TMP_LUMI_REPORT") 行 (head -400 採用)"
+  else
+    log "Lumi sessions report: 直近 24h 分なし"
+  fi
+  rm -f "$TMP_LUMI_REPORT"
+fi
+
+# /improve に lint レポートと Lumi セッション digest を文脈として注入。
+# Claude には:
 #   - 重大度 error から優先的に対処
+#   - Lumi セッションの「気になる/積み残し」に出てきた話題は wiki/inbox の整備候補
 #   - 1晩あたり最大 3 件まで PR 化（小さく刻む）
 #   - 機械的に修正できるものは scripts/lint_fix.py を活用
 # を指示する。
@@ -74,6 +118,17 @@ IMPROVE_PROMPT="/improve
 
 \`\`\`
 ${LINT_REPORT:-(lint 実行に失敗 — レポート無しで /improve のデフォルト動作で進めてください)}
+\`\`\`
+
+## 直近 24h の Lumi セッション digest（会話で出た示唆）
+
+Lumi (voice agent) のチャットセッションから抜き出した「決定 / 学び / 気になる / 積み残し」。
+ここに出てきた **「気になる / 後で試す」「積み残し / 次にやること」** はナレッジベース整備
+（inbox/wiki への新規ページ追加、interests/ の埋め埋め、リンク補強）の候補として優先検討。
+ただし lint で出た issue の方が機械的に直せるなら lint を優先。
+
+\`\`\`
+${LUMI_SESSIONS_REPORT:-(直近 24h は対象 session なし — lumi-sessions/ が空)}
 \`\`\`"
 
 PR_OUTPUT=$(

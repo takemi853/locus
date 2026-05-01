@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.locus.cc-usage</string>
+
+    <!-- 毎晩 JST 23:55 にその日の Claude Code 使用量を knowledge/inbox/cc-usage/ に保存 -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/takemi/Projects/locus-project/locus/cc-usage-daily.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>23</integer>
+        <key>Minute</key><integer>55</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/takemi/.local/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/takemi</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/locus-cc-usage.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/locus-cc-usage-error.log</string>
+</dict>
+</plist>
