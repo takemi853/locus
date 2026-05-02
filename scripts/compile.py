@@ -144,6 +144,20 @@ def _embed_image(article_path: Path) -> bool:
     return True
 
 
+def _notify_compile_error(filename: str, message: str) -> None:
+    """macOS 通知でコンパイルエラーを知らせる。"""
+    import subprocess as _sp
+    import sys as _sys
+    if _sys.platform != "darwin":
+        return
+    msg = message.replace('"', "'")[:80]
+    script = f'display notification "{msg}" with title "compile.py ⚠️ {filename}" sound name "Basso"'
+    try:
+        _sp.run(["osascript", "-e", script], timeout=5, capture_output=True)
+    except Exception:
+        pass
+
+
 async def compile_daily_log(log_path: Path, state: dict) -> float:
     """dailyログ1件をコンパイルして wiki 記事を生成する。"""
     from backends import load_backend
@@ -303,7 +317,10 @@ verified: false
         backend = load_backend()
         await backend.agentic(prompt=prompt, cwd=str(ROOT_DIR), max_turns=30)
     except Exception as e:
+        import traceback as _tb
         print(f"  エラー: {e}")
+        print(_tb.format_exc())
+        _notify_compile_error(log_path.name, str(e))
         return 0.0
 
     # 新規/更新された記事に画像を埋め込む

@@ -16,6 +16,7 @@ import os
 os.environ["CLAUDE_INVOKED_BY"] = "locus_api"
 
 import asyncio
+import html
 import logging
 import sys
 from datetime import datetime, timezone
@@ -142,10 +143,10 @@ async def save_note(text: str = Form(...)):
     try:
         log_path = append_note_to_daily(text)
         logging.info("Mobile note saved to %s (%d chars)", log_path.name, len(text))
-        result = f'<div class="result ok">✓ {log_path.name} に保存しました。</div>'
+        result = f'<div class="result ok">✓ {html.escape(log_path.name)} に保存しました。</div>'
     except Exception as e:
         logging.error("Failed to save note: %s", e)
-        result = f'<div class="result err">エラー: {e}</div>'
+        result = f'<div class="result err">エラー: {html.escape(str(e))}</div>'
     return _NOTE_FORM.format(style=_STYLE, result=result)
 
 
@@ -162,10 +163,10 @@ async def query_post(question: str = Form(...)):
     logging.info("Query: %s", question[:100])
     try:
         answer = await run_query_async(question)
-        result = f'<div class="result ok">{answer}</div>'
+        result = f'<div class="result ok">{html.escape(answer)}</div>'
     except Exception as e:
         logging.error("Query failed: %s", e)
-        result = f'<div class="result err">エラー: {e}</div>'
+        result = f'<div class="result err">エラー: {html.escape(str(e))}</div>'
     return _QUERY_FORM.format(style=_STYLE, result=result)
 
 
