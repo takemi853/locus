@@ -1,5 +1,5 @@
 """
-draft/ の記事をレビューして verified（knowledge/concepts/, knowledge/connections/）に昇格させる。
+draft/ の記事をレビューして verified（knowledge/wiki/）に昇格させる。
 
 Usage:
     uv run python scripts/review.py          # 全ドラフトをレビュー

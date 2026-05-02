@@ -61,7 +61,7 @@ consulting the knowledge base below.
 2. Identify 3-10 articles that are relevant to the question
 3. Read those articles carefully (they're included below)
 4. Synthesize a clear, thorough answer
-5. Cite your sources using [[wikilinks]] (e.g., [[concepts/supabase-auth]])
+5. Cite your sources using [[wikilinks]] (e.g., [[wiki/supabase-auth]])
 6. If the knowledge base doesn't contain relevant information, say so honestly
 
 ## Knowledge Base
