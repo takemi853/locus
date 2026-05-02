@@ -156,7 +156,7 @@ def fix_missing_backlinks(apply: bool) -> int:
         source_link = str(rel).replace(".md", "").replace("\\", "/")
 
         for link in set(extract_wikilinks(content)):
-            if link.startswith("daily/"):
+            if link.startswith("logs/daily/"):
                 continue
             target_path = KNOWLEDGE_DIR / f"{link}.md"
             if not target_path.exists():

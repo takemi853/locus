@@ -2,7 +2,7 @@
 Generate index pages from daily logs — no LLM, no side effects.
 
 Outputs:
-  knowledge/daily/index.md          — 日付一覧（逆順）
+  knowledge/logs/daily/index.md     — 日付一覧（逆順）
   knowledge/projects/<slug>.md      — プロジェクトごとのセッション一覧
   knowledge/inbox/wiki/index.md     — inbox ドラフト記事をタグ別に一覧
 
@@ -123,7 +123,7 @@ def _daily_index(rows: list[tuple[str, str, list[str]]]) -> str:
     for date, summary, projects in sorted(rows, key=lambda r: r[0], reverse=True):
         proj_str = " · ".join(f"`{p}`" for p in projects[:4])
         safe = summary.replace("|", "｜")[:80]
-        lines.append(f"| [[daily/{date}\\|{date}]] | {proj_str} | {safe} |")
+        lines.append(f"| [[logs/daily/{date}\\|{date}]] | {proj_str} | {safe} |")
     return "\n".join(lines) + "\n"
 
 
@@ -146,7 +146,7 @@ def _project_page(project: str, sessions: list[dict]) -> str:
     ]
     for s in sessions_desc:
         ctx = s["context"].replace("|", "｜")[:80]
-        lines.append(f"| [[daily/{s['date']}\\|{s['date']}]] | {s['time']} | {ctx} |")
+        lines.append(f"| [[logs/daily/{s['date']}\\|{s['date']}]] | {s['time']} | {ctx} |")
     return "\n".join(lines) + "\n"
 
 
@@ -217,7 +217,7 @@ def _inbox_index(articles: list[tuple[str, str, str, list[str]]]) -> str:
 # ── Co-link discovery（Scrapbox 式の暗黙的関連検出）────────────────────
 
 def _collect_article_links(search_dirs: list[Path]) -> dict[str, set[str]]:
-    """各記事が持つ wikilink のセットを返す。daily/ リンクは除外。"""
+    """各記事が持つ wikilink のセットを返す。logs/daily/ リンクは除外。"""
     result: dict[str, set[str]] = {}
     for d in search_dirs:
         if not d.is_dir():
@@ -231,7 +231,7 @@ def _collect_article_links(search_dirs: list[Path]) -> dict[str, set[str]]:
                 continue
             links = {
                 link for link in extract_wikilinks(content)
-                if not link.startswith("daily/")
+                if not link.startswith("logs/daily/")
             }
             if links:
                 result[path_to_slug(f.relative_to(KNOWLEDGE_DIR))] = links

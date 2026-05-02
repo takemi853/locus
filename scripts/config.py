@@ -31,7 +31,8 @@ def _resolve_data_dir() -> Path:
 
 DATA_DIR = _resolve_data_dir()
 KNOWLEDGE_DIR = DATA_DIR / "knowledge"
-DAILY_DIR = KNOWLEDGE_DIR / "daily"  # Quartz serves knowledge/, daily must be inside it
+LOGS_DIR = KNOWLEDGE_DIR / "logs"  # 日々の記録(daily / weekly / monthly)を統合
+DAILY_DIR = LOGS_DIR / "daily"  # Quartz serves knowledge/, daily must be inside it
 WIKI_DIR = KNOWLEDGE_DIR / "wiki"
 DRAFT_DIR = KNOWLEDGE_DIR / "inbox"
 CONCEPTS_DIR = KNOWLEDGE_DIR / "concepts"   # legacy alias
@@ -40,8 +41,8 @@ DRAFT_CONCEPTS_DIR = DRAFT_DIR / "concepts"
 DRAFT_CONNECTIONS_DIR = DRAFT_DIR / "connections"
 QA_DIR = KNOWLEDGE_DIR / "qa"
 REPORTS_DIR = DATA_DIR / "reports"
-WEEKLY_DIR = KNOWLEDGE_DIR / "weekly"
-MONTHLY_DIR = KNOWLEDGE_DIR / "monthly"
+WEEKLY_DIR = LOGS_DIR / "weekly"
+MONTHLY_DIR = LOGS_DIR / "monthly"
 PROJECTS_DIR = KNOWLEDGE_DIR / "projects"
 NEWS_DIR = KNOWLEDGE_DIR / "news"
 

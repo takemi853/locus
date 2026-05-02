@@ -43,7 +43,7 @@ def check_broken_links() -> list[dict]:
         content = article.read_text(encoding="utf-8")
         rel = article.relative_to(KNOWLEDGE_DIR)
         for link in extract_wikilinks(content):
-            if link.startswith("daily/"):
+            if link.startswith("logs/daily/"):
                 continue  # daily log references are valid
             if not wiki_article_exists(link):
                 issues.append({
@@ -121,7 +121,7 @@ def check_missing_backlinks() -> list[dict]:
         source_link = str(rel).replace(".md", "").replace("\\", "/")
 
         for link in extract_wikilinks(content):
-            if link.startswith("daily/"):
+            if link.startswith("logs/daily/"):
                 continue
             target_path = KNOWLEDGE_DIR / f"{link}.md"
             if target_path.exists():

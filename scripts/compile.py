@@ -205,7 +205,7 @@ verified: false
 
 ## Sources
 
-- [[daily/{log_path.name}]] — このログから抽出した具体的な根拠
+- [[logs/daily/{log_path.name}]] — このログから抽出した具体的な根拠
 ```
 
 ---
