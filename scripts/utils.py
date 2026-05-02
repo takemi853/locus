@@ -6,8 +6,6 @@ import re
 from pathlib import Path
 
 from config import (
-    CONCEPTS_DIR,
-    CONNECTIONS_DIR,
     DAILY_DIR,
     INDEX_FILE,
     KNOWLEDGE_DIR,
