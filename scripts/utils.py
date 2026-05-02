@@ -53,9 +53,17 @@ def slugify(text: str) -> str:
 # ── Wikilink helpers ──────────────────────────────────────────────────
 
 def extract_wikilinks(content: str) -> list[str]:
-    """Extract [[wikilink]] targets from markdown content, stripping pipe aliases and anchors."""
-    raw = re.findall(r"\[\[([^\]]+)\]\]", content)
-    return [target for r in raw if (target := r.split("|")[0].split("#")[0].strip())]
+    """Extract [[wikilink]] targets from markdown content, stripping pipe aliases and anchors.
+
+    Handles both [[foo|bar]] and [[foo\\|bar]] (escaped pipe in markdown tables).
+    Skips links inside fenced code blocks (```) and inline code (`).
+    """
+    # Strip fenced code blocks
+    stripped = re.sub(r"```.*?```", "", content, flags=re.DOTALL)
+    # Strip inline code
+    stripped = re.sub(r"`[^`]+`", "", stripped)
+    raw = re.findall(r"\[\[([^\]]+)\]\]", stripped)
+    return [target for r in raw if (target := re.split(r"\\?\|", r)[0].split("#")[0].strip())]
 
 
 def path_to_slug(rel: Path) -> str:
@@ -64,9 +72,17 @@ def path_to_slug(rel: Path) -> str:
 
 
 def wiki_article_exists(link: str) -> bool:
-    """Check if a wikilinked article exists on disk."""
-    path = KNOWLEDGE_DIR / f"{link}.md"
-    return path.exists()
+    """Check if a wikilinked article exists on disk.
+
+    Accepts both file links ([[wiki/foo]] → wiki/foo.md) and
+    directory links ([[logs/]] → logs/ directory).
+    """
+    link_clean = link.rstrip("/")
+    if (KNOWLEDGE_DIR / f"{link_clean}.md").exists():
+        return True
+    if (KNOWLEDGE_DIR / link_clean).is_dir():
+        return True
+    return False
 
 
 # ── Wiki content helpers ──────────────────────────────────────────────
@@ -94,11 +110,17 @@ def read_all_wiki_content() -> str:
 
 
 def list_wiki_articles() -> list[Path]:
-    """List all curated wiki article files."""
+    """List all curated wiki article files (wiki/, qa/, index.md, projects/)."""
     articles = []
     for subdir in [WIKI_DIR, QA_DIR]:
         if subdir.exists():
             articles.extend(sorted(subdir.glob("*.md")))
+    # index.md and projects/**/*.md are navigated directly and need link checking too
+    if INDEX_FILE.exists():
+        articles.append(INDEX_FILE)
+    projects_dir = KNOWLEDGE_DIR / "projects"
+    if projects_dir.exists():
+        articles.extend(sorted(projects_dir.rglob("*.md")))
     return articles
 
 
