@@ -24,6 +24,11 @@ if os.environ.get("CLAUDE_INVOKED_BY"):
     print(json.dumps({}))
     sys.exit(0)
 
+# トークン節約: SessionStart context 注入を無効化できるように
+if os.environ.get("DISABLE_SESSIONSTART_CONTEXT"):
+    print(json.dumps({}))
+    sys.exit(0)
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
 
