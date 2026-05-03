@@ -305,6 +305,7 @@ def _promote_to_knowledge(draft_wiki_dir: Path, knowledge_wiki_dir: Path) -> int
 
             # frontmatter 検証（簡易版）
             if not content.startswith("---"):
+                print(f"  ⊘ {draft_file.name}: no frontmatter")
                 continue
 
             # knowledge/ へ move
@@ -312,7 +313,9 @@ def _promote_to_knowledge(draft_wiki_dir: Path, knowledge_wiki_dir: Path) -> int
             kb_file.write_text(content, encoding="utf-8")
             draft_file.unlink()
             promoted += 1
-        except Exception:
+            print(f"  ✓ {draft_file.name} → knowledge/wiki/")
+        except Exception as e:
+            print(f"  ❌ {draft_file.name}: {e}")
             continue
 
     return promoted
