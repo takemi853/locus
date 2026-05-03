@@ -284,6 +284,40 @@ def _colink_page(pairs: list[tuple[str, str, int, list[str]]]) -> str:
 
 # ── メイン ─────────────────────────────────────────────────────────────
 
+def _promote_to_knowledge(draft_wiki_dir: Path, knowledge_wiki_dir: Path) -> int:
+    """draft/wiki/ の記事を knowledge/wiki/ に昇格。
+    frontmatter を検証して、その後 move。
+    Returns: 昇格した記事数
+    """
+    promoted = 0
+
+    if not draft_wiki_dir.is_dir():
+        return 0
+
+    knowledge_wiki_dir.mkdir(parents=True, exist_ok=True)
+
+    for draft_file in draft_wiki_dir.glob("*.md"):
+        if draft_file.name == "index.md":
+            continue
+
+        try:
+            content = draft_file.read_text(encoding="utf-8")
+
+            # frontmatter 検証（簡易版）
+            if not content.startswith("---"):
+                continue
+
+            # knowledge/ へ move
+            kb_file = knowledge_wiki_dir / draft_file.name
+            kb_file.write_text(content, encoding="utf-8")
+            draft_file.unlink()
+            promoted += 1
+        except Exception:
+            continue
+
+    return promoted
+
+
 def run() -> None:
     PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -348,7 +382,120 @@ def run() -> None:
     colink_path.write_text(_colink_page(colink_pairs), encoding="utf-8")
     print(f"  wiki/discovered-connections.md  ({len(colink_pairs)} pairs)")
 
+    # tags インデックス生成
+    _index_tags()
+
+    # draft/wiki/ → knowledge/wiki/ 昇格
+    knowledge_wiki_dir = KNOWLEDGE_DIR / "wiki"
+    promoted = _promote_to_knowledge(DRAFT_WIKI_DIR, knowledge_wiki_dir)
+    if promoted > 0:
+        print(f"  promoted {promoted} articles to knowledge/wiki/")
+
     print(f"\n完了: {len(log_files)} 日分 / {len(all_sessions)} プロジェクト")
+
+
+# ── Tags インデックス ─────────────────────────────────────────────────
+
+def _parse_frontmatter(text: str) -> dict:
+    """frontmatter をパース（YAML 簡易版）。"""
+    if not text.startswith("---"):
+        return {}
+    
+    lines = text.split("\n")
+    fm_end = None
+    for i in range(1, len(lines)):
+        if lines[i].startswith("---"):
+            fm_end = i
+            break
+    
+    if fm_end is None:
+        return {}
+    
+    fm_dict = {}
+    for line in lines[1:fm_end]:
+        if ":" not in line:
+            continue
+        key, val = line.split(":", 1)
+        key = key.strip()
+        val = val.strip()
+        # リスト形式 [item1, item2]
+        if val.startswith("[") and val.endswith("]"):
+            val = [v.strip().strip('"').strip("'") for v in val[1:-1].split(",")]
+        # quoted
+        elif val.startswith('"') and val.endswith('"'):
+            val = val[1:-1]
+        elif val.startswith("'") and val.endswith("'"):
+            val = val[1:-1]
+        fm_dict[key] = val
+    
+    return fm_dict
+
+
+def _build_tags_index(search_dirs: list[Path]) -> dict:
+    """tags を集計。draft/wiki/ と knowledge/wiki/ をスキャン。
+    Returns: { "tags": { "tag1": [...paths], "tag2": [...paths] }, "total_tags", "total_pages" }
+    """
+    tags_map: dict[str, list] = {}
+    total_pages = 0
+    
+    for base_dir in search_dirs:
+        if not base_dir.is_dir():
+            continue
+        
+        for md_file in base_dir.glob("*.md"):
+            if md_file.name == "index.md":
+                continue
+            
+            try:
+                text = md_file.read_text(encoding="utf-8")
+                fm = _parse_frontmatter(text)
+                rel_path = str(md_file.relative_to(KNOWLEDGE_DIR if KNOWLEDGE_DIR in md_file.parents else base_dir))
+                title = fm.get("title", md_file.stem)
+                
+                total_pages += 1
+                
+                # frontmatter の tags フィールド
+                tags = fm.get("tags", [])
+                if isinstance(tags, str):
+                    tags = [t.strip() for t in tags.split(",")]
+                elif not isinstance(tags, list):
+                    tags = []
+                
+                for tag in tags:
+                    tag = tag.strip()
+                    if tag:
+                        if tag not in tags_map:
+                            tags_map[tag] = []
+                        tags_map[tag].append({
+                            "path": rel_path,
+                            "title": title,
+                        })
+            except Exception:
+                continue
+    
+    # タグごとにソート
+    for tag in tags_map:
+        tags_map[tag].sort(key=lambda x: x["title"])
+    
+    return {
+        "tags": tags_map,
+        "total_tags": len(tags_map),
+        "total_pages": total_pages,
+    }
+
+
+def _index_tags() -> None:
+    """tags インデックスを生成して knowledge/index-tags.json に保存。"""
+    import json
+    
+    search_dirs = [WIKI_DIR, DRAFT_WIKI_DIR]
+    index_data = _build_tags_index(search_dirs)
+    
+    out_path = KNOWLEDGE_DIR / "index-tags.json"
+    KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(index_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    print(f"  knowledge/index-tags.json  ({index_data['total_tags']} tags, {index_data['total_pages']} pages)")
 
 
 if __name__ == "__main__":

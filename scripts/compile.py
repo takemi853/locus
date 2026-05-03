@@ -158,6 +158,43 @@ def _notify_compile_error(filename: str, message: str) -> None:
         pass
 
 
+def _promote_to_knowledge(draft_wiki_dir: Path, knowledge_wiki_dir: Path) -> int:
+    """draft/wiki/ の記事を knowledge/wiki/ に昇格。
+    frontmatter を検証して、その後 move。
+    Returns: 昇格した記事数
+    """
+    promoted = 0
+    
+    if not draft_wiki_dir.is_dir():
+        return 0
+    
+    knowledge_wiki_dir.mkdir(parents=True, exist_ok=True)
+    
+    for draft_file in draft_wiki_dir.glob("*.md"):
+        if draft_file.name == "index.md":
+            continue
+        
+        try:
+            content = draft_file.read_text(encoding="utf-8")
+            
+            # frontmatter 検証（簡易版）
+            if not content.startswith("---"):
+                print(f"  ⚠️  {draft_file.name}: frontmatter なし、スキップ")
+                continue
+            
+            # knowledge/ へ move
+            kb_file = knowledge_wiki_dir / draft_file.name
+            kb_file.write_text(content, encoding="utf-8")
+            draft_file.unlink()
+            promoted += 1
+            print(f"  ✓ {draft_file.name} → knowledge/wiki/")
+        except Exception as e:
+            print(f"  ❌ {draft_file.name}: {e}")
+            continue
+    
+    return promoted
+
+
 async def compile_daily_log(log_path: Path, state: dict) -> float:
     """dailyログ1件をコンパイルして wiki 記事を生成する。"""
     from backends import load_backend
@@ -335,6 +372,13 @@ verified: false
     if image_count:
         print(f"  画像埋め込み: {image_count} 件")
 
+    # 昇格処理（draft/wiki/ → knowledge/wiki/）
+    print("\n[昇格] draft/wiki/ → knowledge/wiki/")
+    knowledge_wiki_dir = KNOWLEDGE_DIR / "wiki"
+    promoted = _promote_to_knowledge(DRAFT_WIKI_DIR, knowledge_wiki_dir)
+    if promoted:
+        print(f"  {promoted} 記事を昇格しました")
+    
     # 処理済み状態を記録
     rel_path = log_path.name
     state.setdefault("ingested", {})[rel_path] = {
