@@ -243,9 +243,9 @@ def collect_new_errors(since_ts: float) -> list[str]:
                             ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").timestamp()
                         except ValueError:
                             ts = 0.0
-                        in_recent_error = ts > since_ts and (
-                            "ERROR" in line or "CRITICAL" in line
-                        )
+                        _level_parts = line[m.end():].split()
+                        _level = _level_parts[0] if _level_parts else ""
+                        in_recent_error = ts > since_ts and _level in ("ERROR", "CRITICAL")
                         if in_recent_error:
                             errors.append(f"[{log_file.name}] {line}")
                     else:

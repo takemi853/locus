@@ -47,6 +47,9 @@ def main() -> None:
     # Claude Code on Windows may pass paths with unescaped backslashes
     try:
         raw_input = sys.stdin.read()
+        if not raw_input.strip():
+            logging.info("SKIP: empty stdin (no hook input)")
+            return
         try:
             hook_input: dict = json.loads(raw_input)
         except json.JSONDecodeError:

@@ -28,6 +28,12 @@
         <string>/usr/local/bin:/usr/bin:/bin:/Users/takemi/.local/bin:/opt/homebrew/bin</string>
         <key>HOME</key>
         <string>/Users/takemi</string>
+        <key>USER</key>
+        <string>takemi</string>
+        <key>LOGNAME</key>
+        <string>takemi</string>
+        <key>TMPDIR</key>
+        <string>/var/folders/01/krs7mvqs4ls5l2n1ggx6hwyc0000gn/T/</string>
     </dict>
 
     <key>StandardOutPath</key>

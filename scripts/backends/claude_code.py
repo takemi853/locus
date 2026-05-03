@@ -49,7 +49,6 @@ class ClaudeCodeBackend(LLMBackend):
         async for message in query(
             prompt=prompt,
             options=ClaudeAgentOptions(
-                allowed_tools=[],
                 max_turns=2,
                 cli_path=_claude_path(),
             ),
