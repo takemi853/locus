@@ -31,8 +31,8 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/tmp/locus-cc-usage.log</string>
+    <string>/Users/takemi/Projects/locus-project/locus/scripts/cache/logs/cc-usage.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/locus-cc-usage-error.log</string>
+    <string>/Users/takemi/Projects/locus-project/locus/scripts/cache/logs/cc-usage-error.log</string>
 </dict>
 </plist>

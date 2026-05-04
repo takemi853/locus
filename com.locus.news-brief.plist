@@ -40,8 +40,8 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/tmp/locus-auto-brief.log</string>
+    <string>/Users/takemi/Projects/locus-project/locus/scripts/cache/logs/auto-brief.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/locus-auto-brief-error.log</string>
+    <string>/Users/takemi/Projects/locus-project/locus/scripts/cache/logs/auto-brief-error.log</string>
 </dict>
 </plist>
