@@ -36,6 +36,12 @@ log "=== auto_brief.sh 開始 ==="
 #   • 自動生成ファイルの未コミット差分 → autostash で逃す
 #   • 競合 → rebase 自体がクリーンに abort
 log "git pull 開始..."
+# news_app.py の変更検知用に pull 前のハッシュを保存
+NEWS_APP_BEFORE=""
+if [ -f "$LOCUS_PRIVATE_DIR/scripts/news_app.py" ]; then
+  NEWS_APP_BEFORE=$(shasum "$LOCUS_PRIVATE_DIR/scripts/news_app.py" | awk '{print $1}')
+fi
+
 for repo in "$SCRIPT_DIR" "$LOCUS_PRIVATE_DIR"; do
   if ! git -C "$repo" pull --rebase --autostash 2>&1 | tee -a "$LOG_FILE"; then
     git -C "$repo" rebase --abort 2>/dev/null || true
@@ -45,6 +51,15 @@ for repo in "$SCRIPT_DIR" "$LOCUS_PRIVATE_DIR"; do
   fi
 done
 log "git pull 完了"
+
+# news_app.py が変更されていたら News App を再起動（コード反映のため）
+if [ -n "$NEWS_APP_BEFORE" ] && [ -f "$LOCUS_PRIVATE_DIR/scripts/news_app.py" ]; then
+  NEWS_APP_AFTER=$(shasum "$LOCUS_PRIVATE_DIR/scripts/news_app.py" | awk '{print $1}')
+  if [ "$NEWS_APP_BEFORE" != "$NEWS_APP_AFTER" ]; then
+    log "news_app.py に変更を検知 → News App を再起動"
+    launchctl kickstart -k "gui/$(id -u)/com.locus.news" 2>&1 | tee -a "$LOG_FILE" || true
+  fi
+fi
 
 # ── Step 1: ニュース収集 ───────────────────────────────────────────────
 log "ニュース収集開始..."
