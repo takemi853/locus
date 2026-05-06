@@ -46,11 +46,13 @@ class ClaudeCodeBackend(LLMBackend):
         )
 
         response = ""
+        claude_path = _claude_path()
+
         async for message in query(
             prompt=prompt,
             options=ClaudeAgentOptions(
                 max_turns=2,
-                cli_path=_claude_path(),
+                cli_path=claude_path,
             ),
         ):
             if isinstance(message, AssistantMessage):
